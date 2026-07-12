@@ -1,0 +1,77 @@
+{
+  "common": {
+    "switchLanguage": "भाषा बदलें",
+    "homeTab": "होम",
+    "bookingsTab": "मेरी बुकिंग",
+    "profileTab": "प्रोफ़ाइल",
+    "support": "सहायता"
+  },
+  "onboarding": {
+    "title": "पंडित बुकिंग में आपका स्वागत है",
+    "subtitle": "अपनी पसंदीदा भाषा चुनें",
+    "selectEnglish": "English",
+    "selectHindi": "हिन्दी"
+  },
+  "login": {
+    "title": "ओटीपी सत्यापन",
+    "phoneLabel": "फ़ोन नंबर दर्ज करें",
+    "phonePlaceholder": "उदा., 9990001001",
+    "sendOtp": "ओटीपी भेजें",
+    "otpLabel": "6-अंकीय ओटीपी दर्ज करें",
+    "otpPlaceholder": "उदा., 123456",
+    "verifyOtp": "ओटीपी सत्यापित करें",
+    "sending": "भेजा जा रहा है...",
+    "verifying": "सत्यापित किया जा रहा है...",
+    "invalidPhone": "कृपया 10 अंकों का सही फ़ोन नंबर दर्ज करें",
+    "invalidOtp": "कृपया 6 अंकों का सही ओटीपी दर्ज करें"
+  },
+  "home": {
+    "title": "अपनी पूजा के लिए विश्वसनीय पंडित बुक करें",
+    "subtitle": "विधि चुनें, पंडित चुनें और कुछ ही मिनटों में बुकिंग पक्की करें।"
+  },
+  "bookings": {
+    "title": "मेरी बुकिंग",
+    "noBookings": "आपकी अभी तक कोई बुकिंग नहीं है।"
+  },
+  "profile": {
+    "title": "मेरी प्रोफ़ाइल",
+    "name": "नाम",
+    "phone": "फ़ोन",
+    "language": "पसंदीदा भाषा",
+    "logout": "लॉगआउट"
+  },
+  "poojaDetails": {
+    "title": "पूजा का विवरण",
+    "duration": "अवधि",
+    "price": "मूल मूल्य",
+    "description": "विवरण",
+    "samagri": "आवश्यक सामग्री",
+    "panditBrings": "पंडित जी लाएंगे",
+    "userArranges": "आपको व्यवस्था करनी होगी",
+    "bookButton": "यह पूजा बुक करें",
+    "loading": "लोड हो रहा है...",
+    "noSamagri": "किसी विशेष सामग्री की आवश्यकता नहीं है।"
+  },
+  "dateTime": {
+    "title": "दिनांक और समय चुनें",
+    "selectDate": "तारीख चुनें",
+    "selectTime": "समय का स्लॉट चुनें",
+    "continue": "आगे बढ़ें"
+  },
+  "location": {
+    "title": "स्थान चुनें",
+    "useCurrent": "वर्तमान जीपीएस स्थान का उपयोग करें",
+    "manualAddress": "पता मैन्युअल रूप से दर्ज करें",
+    "addressPlaceholder": "उदा., फ्लैट 402, साई हाइट्स, सेक्टर 15...",
+    "continue": "आगे बढ़ें"
+  },
+  "choosePandits": {
+    "title": "पंडित चुनें",
+    "selectedCount": "{{count}}/10 चुने गए",
+    "rating": "रेटिंग",
+    "experience": "{{yrs}} वर्ष का अनुभव",
+    "continue": "आगे बढ़ें",
+    "loading": "निकटतम पंडितों की खोज की जा रही है...",
+    "noPandits": "इस क्षेत्र में कोई पंडित नहीं मिला। दूसरा स्थान आज़माएं।"
+  }
+}

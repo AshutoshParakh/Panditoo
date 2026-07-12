@@ -1,0 +1,113 @@
+{
+  "common": {
+    "switchLanguage": "Switch Language",
+    "en": "English",
+    "hi": "हिंदी",
+    "logout": "Log Out",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "submitting": "Submitting...",
+    "error": "Error",
+    "success": "Success",
+    "back": "Back"
+  },
+  "onboarding": {
+    "welcome": "Swagat Hain!",
+    "chooseLanguage": "Choose Your Language / अपनी भाषा चुनें",
+    "tagline": "Connect with devotees and perform Pujas in your area",
+    "continue": "Continue"
+  },
+  "login": {
+    "title": "Pandit Login",
+    "subtitle": "Enter your registered mobile number",
+    "phoneLabel": "Mobile Number",
+    "phonePlaceholder": "Enter 10-digit number",
+    "invalidPhone": "Please enter a valid 10-digit mobile number",
+    "sendOtp": "Send OTP",
+    "sending": "Sending OTP...",
+    "otpLabel": "Enter 6-Digit OTP",
+    "otpPlaceholder": "Enter OTP",
+    "invalidOtp": "Please enter a 6-digit OTP",
+    "verifyOtp": "Verify & Proceed",
+    "verifying": "Verifying...",
+    "changePhone": "← Change Phone Number",
+    "testModeNote": "OTP sent! Use any 6-digit code for testing."
+  },
+  "setup": {
+    "title": "Pandit Profile Setup",
+    "subtitle": "Complete these details to start receiving bookings",
+    "name": "Full Name",
+    "namePlaceholder": "Pandit Ji's Name",
+    "experience": "Years of Experience (Panditai)",
+    "years": "Years",
+    "specializations": "Choose Specializations (Pooja Types)",
+    "radius": "Service Radius (KM)",
+    "address": "Your Address",
+    "detectLocation": "Detect My Location",
+    "locating": "Locating...",
+    "locationSuccess": "Location detected successfully!",
+    "bankDetails": "Bank Account Details for Payouts",
+    "holderName": "Account Holder Name",
+    "bankName": "Bank Name",
+    "accountNo": "Account Number",
+    "ifscCode": "IFSC Code",
+    "idProof": "Identity Proof (Aadhar Card / ID)",
+    "uploadButton": "Take Photo / Upload ID Proof",
+    "photoUploaded": "ID Photo Uploaded Successfully",
+    "register": "Submit Application",
+    "validationError": "Please fill all required fields and upload ID proof."
+  },
+  "verification": {
+    "title": "Verification Pending",
+    "message": "Thank you for registering! Our administration team is reviewing your profile and credentials.",
+    "subMessage": "This process usually takes 24-48 hours. You will receive an SMS notification once approved.",
+    "status": "Current Status: Pending Admin Approval",
+    "checkStatus": "Check Status Again"
+  },
+  "requests": {
+    "title": "New Puja Requests",
+    "noRequests": "No active requests right now. Keep this screen open to receive nearby requests.",
+    "distance": "Distance",
+    "payout": "Your Earnings",
+    "accept": "Accept Puja",
+    "reject": "Decline",
+    "acceptSuccess": "Pooja booking accepted successfully!",
+    "rejectSuccess": "Puja request declined.",
+    "customer": "Devotee",
+    "pooja": "Puja Name",
+    "dateTime": "Date & Time",
+    "address": "Location",
+    "responseRecorded": "Your response has been recorded successfully."
+  },
+  "bookings": {
+    "title": "My Bookings",
+    "noBookings": "You haven't accepted any bookings yet.",
+    "statusConfirmed": "Confirmed",
+    "statusCompleted": "Completed",
+    "statusCancelled": "Cancelled",
+    "markCompleted": "Mark as Completed",
+    "callDevotee": "Call Devotee",
+    "directions": "Get Directions",
+    "detailTitle": "Booking Detail"
+  },
+  "earnings": {
+    "title": "Earnings Dashboard",
+    "totalEarnings": "Total Earnings",
+    "completedPujas": "Pujas Completed",
+    "payoutMethod": "Payout Account",
+    "recentTransactions": "Recent Puja Payouts",
+    "rs": "₹",
+    "payoutPending": "Pending Payout",
+    "payoutPaid": "Paid to Bank"
+  },
+  "profile": {
+    "title": "Pandit Profile",
+    "experience": "Experience",
+    "verified": "Verified Pandit",
+    "notVerified": "Verification Pending",
+    "radius": "Service Radius",
+    "bankAccount": "Bank Account",
+    "specialties": "Specialties",
+    "rating": "Devotee Rating"
+  }
+}

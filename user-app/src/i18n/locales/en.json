@@ -1,0 +1,77 @@
+{
+  "common": {
+    "switchLanguage": "Switch Language",
+    "homeTab": "Home",
+    "bookingsTab": "My Bookings",
+    "profileTab": "Profile",
+    "support": "Support"
+  },
+  "onboarding": {
+    "title": "Welcome to Pandit Booking",
+    "subtitle": "Choose your preferred language",
+    "selectEnglish": "English",
+    "selectHindi": "हिन्दी"
+  },
+  "login": {
+    "title": "OTP Verification",
+    "phoneLabel": "Enter Phone Number",
+    "phonePlaceholder": "e.g., 9990001001",
+    "sendOtp": "Send OTP",
+    "otpLabel": "Enter 6-digit OTP",
+    "otpPlaceholder": "e.g., 123456",
+    "verifyOtp": "Verify OTP",
+    "sending": "Sending...",
+    "verifying": "Verifying...",
+    "invalidPhone": "Please enter a valid 10-digit phone number",
+    "invalidOtp": "Please enter a valid 6-digit OTP"
+  },
+  "home": {
+    "title": "Book trusted pandits for your pooja",
+    "subtitle": "Browse rituals, choose a priest, and confirm your booking in minutes."
+  },
+  "bookings": {
+    "title": "My Bookings",
+    "noBookings": "You have no bookings yet."
+  },
+  "profile": {
+    "title": "My Profile",
+    "name": "Name",
+    "phone": "Phone",
+    "language": "Preferred Language",
+    "logout": "Logout"
+  },
+  "poojaDetails": {
+    "title": "Pooja Details",
+    "duration": "Duration",
+    "price": "Base Price",
+    "description": "Description",
+    "samagri": "Required Samagri",
+    "panditBrings": "Pandit will bring",
+    "userArranges": "You need to arrange",
+    "bookButton": "Book This Pooja",
+    "loading": "Loading...",
+    "noSamagri": "No specific samagri list required."
+  },
+  "dateTime": {
+    "title": "Select Date & Time",
+    "selectDate": "Select Date",
+    "selectTime": "Select Time Slot",
+    "continue": "Continue"
+  },
+  "location": {
+    "title": "Select Location",
+    "useCurrent": "Use Current GPS Location",
+    "manualAddress": "Enter Address Manually",
+    "addressPlaceholder": "e.g., Flat 402, Sai Heights, Sector 15...",
+    "continue": "Continue"
+  },
+  "choosePandits": {
+    "title": "Choose Pandits",
+    "selectedCount": "{{count}}/10 Selected",
+    "rating": "Rating",
+    "experience": "{{yrs}} yrs exp",
+    "continue": "Continue",
+    "loading": "Searching for nearby pandits...",
+    "noPandits": "No pandits found in this area. Try another location."
+  }
+}

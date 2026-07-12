@@ -1,0 +1,30 @@
+DROP INDEX IF EXISTS idx_ratings_booking_id;
+DROP INDEX IF EXISTS idx_payments_razorpay_order_id_unique;
+DROP INDEX IF EXISTS idx_payments_razorpay_payment_id_unique;
+DROP INDEX IF EXISTS idx_payments_booking_id;
+DROP INDEX IF EXISTS idx_booking_requests_pandit_id;
+DROP INDEX IF EXISTS idx_bookings_confirmed_pandit_id;
+DROP INDEX IF EXISTS idx_bookings_pooja_type_id;
+DROP INDEX IF EXISTS idx_bookings_user_id;
+DROP INDEX IF EXISTS idx_booking_requests_booking_status;
+DROP INDEX IF EXISTS idx_bookings_status;
+DROP INDEX IF EXISTS idx_pandits_latitude_longitude;
+
+DROP TABLE IF EXISTS admins;
+DROP TABLE IF EXISTS ratings;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS booking_requests;
+DROP TABLE IF EXISTS bookings;
+DROP TABLE IF EXISTS pooja_types;
+DROP TABLE IF EXISTS pandits;
+DROP TABLE IF EXISTS users;
+
+DROP TYPE IF EXISTS admin_role;
+DROP TYPE IF EXISTS rated_by_type;
+DROP TYPE IF EXISTS payment_status;
+DROP TYPE IF EXISTS payment_type;
+DROP TYPE IF EXISTS booking_request_status;
+DROP TYPE IF EXISTS payout_status;
+DROP TYPE IF EXISTS prepaid_status;
+DROP TYPE IF EXISTS booking_status;
+DROP TYPE IF EXISTS preferred_language;
