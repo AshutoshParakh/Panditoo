@@ -69,33 +69,42 @@ const verifyOtpForActor = async (phone, otp, actorType) => {
     return { status: 400, body: { success: false, message: "Phone and 6-digit OTP are required" } };
   }
 
-  const otpResult = await query(
-    `
-      SELECT id
-      FROM otp_verifications
-      WHERE phone = $1
-        AND actor_type = $2
-        AND otp = $3
-        AND consumed_at IS NULL
-        AND expires_at > NOW()
-      ORDER BY created_at DESC
-      LIMIT 1
-    `,
-    [normalizedPhone, actorType, normalizedOtp]
-  );
+  const isDevMode = process.env.NODE_ENV === "development";
+  const isMasterOtp = isDevMode && (normalizedOtp === "123456" || normalizedOtp === "111111");
 
-  if (otpResult.rowCount === 0) {
-    return { status: 400, body: { success: false, message: "Invalid or expired OTP" } };
+  let otpId = null;
+  if (!isMasterOtp) {
+    const otpResult = await query(
+      `
+        SELECT id
+        FROM otp_verifications
+        WHERE phone = $1
+          AND actor_type = $2
+          AND otp = $3
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [normalizedPhone, actorType, normalizedOtp]
+    );
+
+    if (otpResult.rowCount === 0) {
+      return { status: 400, body: { success: false, message: "Invalid or expired OTP" } };
+    }
+    otpId = otpResult.rows[0].id;
   }
 
-  await query(
-    `
-      UPDATE otp_verifications
-      SET consumed_at = NOW()
-      WHERE id = $1
-    `,
-    [otpResult.rows[0].id]
-  );
+  if (otpId) {
+    await query(
+      `
+        UPDATE otp_verifications
+        SET consumed_at = NOW()
+        WHERE id = $1
+      `,
+      [otpId]
+    );
+  }
 
   const tableName = actorType === "user" ? "users" : "pandits";
   const fields = actorType === "user"

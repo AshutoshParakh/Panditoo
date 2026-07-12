@@ -15,8 +15,8 @@ import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 
 const DEFAULT_REGION = {
-  latitude: 28.6139,
-  longitude: 77.2090,
+  latitude: 22.7634,
+  longitude: 75.9101,
   latitudeDelta: 0.015,
   longitudeDelta: 0.015,
 };

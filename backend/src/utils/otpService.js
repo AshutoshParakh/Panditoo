@@ -13,7 +13,9 @@ const sendOTP = async (phone, otp) => {
     }
   }
 
-  console.log(`[OTP:${provider}] Sending OTP ${otp} to ${formattedPhone}`);
+  console.log("\n========================================================");
+  console.log(`🔑 [OTP:${provider.toUpperCase()}] OTP: ${otp}  -->  Sent to: ${formattedPhone}`);
+  console.log("========================================================\n");
 
   if (provider === "mock") {
     return { success: true, provider };

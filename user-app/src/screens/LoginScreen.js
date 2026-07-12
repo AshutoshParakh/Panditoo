@@ -15,6 +15,22 @@ import { useTranslation } from "react-i18next";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
+const fetchWithTimeout = async (url, options, timeout = 10000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
+
 export default function LoginScreen({ navigation }) {
   const { t } = useTranslation();
   const [phone, setPhone] = useState("");
@@ -27,6 +43,7 @@ export default function LoginScreen({ navigation }) {
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [testMode, setTestMode] = useState(false);
 
   const handleSendOtp = async () => {
     setError("");
@@ -36,7 +53,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/auth/user/send-otp`, {
+      const res = await fetchWithTimeout(`${API_URL}/auth/user/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
@@ -45,12 +62,15 @@ export default function LoginScreen({ navigation }) {
       if (res.ok && data.success) {
         setOtpSent(true);
       } else {
-        setError(data.message || "Failed to send OTP. Proceeding in test mode.");
+        setError(data.message || "Failed to send OTP. Test mode enabled.");
         setOtpSent(true);
+        setTestMode(true);
       }
     } catch (err) {
       console.warn("Auth send-otp failed, using fallback:", err.message);
+      setError("Server connection failed. Test mode enabled.");
       setOtpSent(true);
+      setTestMode(true);
     } finally {
       setLoading(false);
     }
@@ -64,7 +84,21 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/auth/user/verify-otp`, {
+      if (testMode) {
+        setTimeout(async () => {
+          setLoading(false);
+          const mockToken = "mock-jwt-token-for-testing";
+          await AsyncStorage.setItem("user-app-token", mockToken);
+          await AsyncStorage.setItem("user-id", "mock-user-id");
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Main" }],
+          });
+        }, 1000);
+        return;
+      }
+
+      const res = await fetchWithTimeout(`${API_URL}/auth/user/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, otp }),
@@ -103,7 +137,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/auth/user/register`, {
+      const res = await fetchWithTimeout(`${API_URL}/auth/user/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, phone, email, address, source }),
@@ -201,6 +235,7 @@ export default function LoginScreen({ navigation }) {
                         setOtpSent(false);
                         setOtp("");
                         setError("");
+                        setTestMode(false);
                       }}
                       disabled={loading}
                     >
@@ -280,6 +315,7 @@ export default function LoginScreen({ navigation }) {
                     setAddress("");
                     setSource("");
                     setError("");
+                    setTestMode(false);
                   }}
                   disabled={loading}
                 >

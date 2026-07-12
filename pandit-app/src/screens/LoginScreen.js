@@ -16,6 +16,22 @@ import { useAuth } from "../context/AuthContext";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
+const fetchWithTimeout = async (url, options, timeout = 10000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
+
 export default function LoginScreen({ navigation }) {
   const { t } = useTranslation();
   const { login } = useAuth();
@@ -34,7 +50,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/auth/pandit/send-otp`, {
+      const res = await fetchWithTimeout(`${API_URL}/auth/pandit/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),

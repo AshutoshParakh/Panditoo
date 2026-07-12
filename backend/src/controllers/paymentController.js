@@ -1,4 +1,4 @@
-﻿const { pool, query } = require("../config/db");
+const { pool, query } = require("../config/db");
 const {
   createRazorpayOrder,
   verifyPaymentSignature,
@@ -126,6 +126,7 @@ const createPaymentOrder = async (req, res, next) => {
       booking_id: booking.id,
       payment: paymentResult.rows[0],
       razorpay_order: order,
+      razorpay_key_id: process.env.RAZORPAY_KEY_ID || "",
     });
   } catch (error) {
     return next(error);

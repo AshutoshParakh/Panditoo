@@ -21,42 +21,13 @@ export default function ChoosePanditsScreen({ route, navigation }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const getFallbackPandits = () => [
-    {
-      id: "p1",
-      name: "Pandit Rajesh Shastri",
-      rating: "4.9",
-      experience_years: 15,
-      specializations: currentLang === "hi" ? ["हवन", "कथा", "विवाह"] : ["Havan", "Katha", "Marriage"],
-    },
-    {
-      id: "p2",
-      name: "Pandit Sunil Dwivedi",
-      rating: "4.8",
-      experience_years: 12,
-      specializations: currentLang === "hi" ? ["वास्तु पूजा", "कथा"] : ["Vastu Pooja", "Katha"],
-    },
-    {
-      id: "p3",
-      name: "Pandit Amit Sharma",
-      rating: "4.7",
-      experience_years: 8,
-      specializations: currentLang === "hi" ? ["हवन", "कथा", "नामकरण"] : ["Havan", "Katha", "Namkaran"],
-    },
-    {
-      id: "p4",
-      name: "Pandit Devendra Dixit",
-      rating: "4.6",
-      experience_years: 10,
-      specializations: currentLang === "hi" ? ["रुद्राभिषेक", "कथा"] : ["Rudrabhishek", "Katha"],
-    },
-  ];
+  const getFallbackPandits = () => [];
 
   const fetchNearbyPandits = async () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `${API_URL}/pandits/nearby?lat=${latitude || 28.6139}&lng=${longitude || 77.2090}&radius=15`
+        `${API_URL}/pandits/nearby?lat=${latitude || 22.7634}&lng=${longitude || 75.9101}&radius=50`
       );
       const json = await response.json();
       if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {

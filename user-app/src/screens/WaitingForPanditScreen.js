@@ -116,48 +116,6 @@ export default function WaitingForPanditScreen({ route, navigation }) {
               : `✓ ${notifiedCount} pandits notified`}
           </Text>
         </View>
-
-        {/* Demo simulator trigger */}
-        <TouchableOpacity
-          style={styles.demoBtn}
-          onPress={async () => {
-            // Let's call the backend to mark a pandit as interested and confirmed to test integration
-            // We can search the database for a pandit to accept the booking.
-            // But let's just trigger a navigation mock if needed.
-            if (token && bookingId) {
-              try {
-                // Fetch nearby pandits to get a valid one
-                const resPandits = await fetch(`${API_URL}/pandits/nearby?lat=28.6139&lng=77.2090&radius=15`);
-                const jsonPandits = await resPandits.json();
-                const pandit = jsonPandits.data?.[0];
-                if (pandit) {
-                  // We can hit the mock accept endpoint if available, or just mock navigations
-                  console.log("Simulating accept with:", pandit.name);
-                }
-              } catch (e) {}
-            }
-            // Fallback navigation simulation
-            navigation.replace("BookingConfirmed", {
-              booking: {
-                id: bookingId,
-                pooja_type_id: "mock",
-                name_en: poojaName,
-                name_hi: poojaName,
-                booking_date: "Tomorrow",
-                booking_time: "09:00 AM",
-                address: "Connaught Place, New Delhi",
-                confirmed_pandit: {
-                  name: "Pandit Rajesh Shastri",
-                  phone: "9990004002",
-                  rating: "4.9",
-                },
-              },
-            });
-          }}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.demoBtnText}>Simulate Pandit Accept (Demo)</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

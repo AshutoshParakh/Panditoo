@@ -71,8 +71,8 @@ export default function ConfirmBookingScreen({ route, navigation }) {
             booking_date: bookingDate,
             booking_time: bookingTime,
             address,
-            latitude: latitude || 28.6139,
-            longitude: longitude || 77.2090,
+            latitude: latitude || 22.7634,
+            longitude: longitude || 75.9101,
             selected_pandit_ids: selectedPanditIds,
           }),
         });
@@ -107,14 +107,79 @@ export default function ConfirmBookingScreen({ route, navigation }) {
         throw new Error(orderData.message || "Failed to create Razorpay order");
       }
 
-      const { razorpay_order } = orderData;
+      const { razorpay_order, razorpay_key_id } = orderData;
       setPendingOrder(razorpay_order);
 
-      // 3. Instantly verify payment with stub data to bypass Razorpay Checkout gateway
-      const mockPaymentId = `pay_mock_${Math.random().toString(36).substring(7)}`;
-      const mockSignature = "stub_signature";
-      await verifyPayment(currentBooking.id, razorpay_order.id, mockPaymentId, mockSignature);
+      if (razorpay_order.is_stub) {
+        // If the backend is running in stub mode (no real keys configured), show the simulation modal
+        setShowSimulationModal(true);
+      } else {
+        // Attempt to open Razorpay payment gateway
+        try {
+          if (!RazorpayCheckout || typeof RazorpayCheckout.open !== "function") {
+            throw new Error("RazorpayCheckout module not available in this environment");
+          }
 
+          // Prefill details
+          let userPhone = "9999999999";
+          let userEmail = "customer@example.com";
+          try {
+            const profileRes = await fetch(`${API_URL}/auth/profile`, {
+              headers: {
+                "Authorization": `Bearer ${token}`
+              }
+            });
+            const profileJson = await profileRes.json();
+            if (profileJson.success && profileJson.user) {
+              userPhone = profileJson.user.phone || userPhone;
+              userEmail = profileJson.user.email || userEmail;
+            }
+          } catch (_) {}
+
+          const options = {
+            description: `Prepayment for ${pooja?.name}`,
+            image: "https://i.imgur.com/3g7urwK.png",
+            currency: razorpay_order.currency || "INR",
+            key: razorpay_key_id,
+            amount: razorpay_order.amount,
+            name: "Panditoo",
+            order_id: razorpay_order.id,
+            prefill: {
+              email: userEmail,
+              contact: userPhone,
+              name: "Customer",
+            },
+            theme: { color: "#6a1b1a" },
+          };
+
+          RazorpayCheckout.open(options)
+            .then(async (data) => {
+              await verifyPayment(
+                currentBooking.id,
+                data.razorpay_order_id || razorpay_order.id,
+                data.razorpay_payment_id,
+                data.razorpay_signature
+              );
+            })
+            .catch((err) => {
+              console.warn("Razorpay Checkout Error:", err);
+              if (err && err.code === 2) {
+                setPaymentError(
+                  currentLang === "hi"
+                    ? "भुगतान रद्द कर दिया गया।"
+                    : "Payment cancelled by user."
+                );
+              } else {
+                setPaymentError(err?.description || "Payment failed");
+              }
+              setLoading(false);
+            });
+        } catch (checkoutErr) {
+          console.warn("Razorpay native checkout failed to load, falling back to simulation modal:", checkoutErr.message);
+          // Fallback to simulation modal in Expo Go/development environments where native module isn't built
+          setShowSimulationModal(true);
+        }
+      }
     } catch (err) {
       console.error(err);
       setPaymentError(err.message);
