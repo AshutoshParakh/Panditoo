@@ -113,6 +113,7 @@ function MainTabNavigator() {
 
 // Navigation flow director based on Authentication State
 function AppNavigator() {
+  const { t } = useTranslation();
   const { token, pandit, isLoading } = useAuth();
 
   if (isLoading) {

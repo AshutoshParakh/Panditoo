@@ -11,6 +11,7 @@ import {
   ToastAndroid,
   Platform,
   ScrollView,
+  RefreshControl,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
@@ -192,7 +193,7 @@ export default function RequestsScreen({ navigation }) {
         <ScrollView
           contentContainerStyle={styles.pendingContainer}
           refreshControl={
-            <ActivityIndicator animating={refreshing} color="#ea580c" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#ea580c"]} />
           }
         >
           <Text style={styles.pendingIcon}>⏳</Text>

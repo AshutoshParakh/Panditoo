@@ -110,35 +110,10 @@ export default function ConfirmBookingScreen({ route, navigation }) {
       const { razorpay_order } = orderData;
       setPendingOrder(razorpay_order);
 
-      // 3. Initiate Razorpay Checkout
-      const options = {
-        description: `Prepayment for ${pooja.name}`,
-        image: "https://i.imgur.com/3g7nmJC.png",
-        currency: razorpay_order.currency || "INR",
-        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_mockkeyid12345",
-        amount: razorpay_order.amount,
-        name: "Pandit Booking",
-        order_id: razorpay_order.id,
-        prefill: {
-          email: "user@example.com",
-          contact: "9990001001",
-          name: "Dev User",
-        },
-        theme: { color: "#d97706" },
-      };
-
-      try {
-        if (!RazorpayCheckout || !RazorpayCheckout.open) {
-          throw new Error("Razorpay native module not found");
-        }
-
-        const paymentData = await RazorpayCheckout.open(options);
-        await verifyPayment(currentBooking.id, razorpay_order.id, paymentData.razorpay_payment_id, paymentData.razorpay_signature);
-      } catch (sdkError) {
-        // Native module unavailable or failed to launch. Trigger simulation options.
-        console.warn("Razorpay checkout failed or not supported in this environment: ", sdkError.message);
-        setShowSimulationModal(true);
-      }
+      // 3. Instantly verify payment with stub data to bypass Razorpay Checkout gateway
+      const mockPaymentId = `pay_mock_${Math.random().toString(36).substring(7)}`;
+      const mockSignature = "stub_signature";
+      await verifyPayment(currentBooking.id, razorpay_order.id, mockPaymentId, mockSignature);
 
     } catch (err) {
       console.error(err);
@@ -280,13 +255,13 @@ export default function ConfirmBookingScreen({ route, navigation }) {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#d97706" />
             <Text style={styles.loadingText}>
-              {currentLang === "hi" ? "भुगतान की प्रक्रिया चल रही है..." : "Processing payment..."}
+              {currentLang === "hi" ? "बुकिंग की पुष्टि की जा रही है..." : "Confirming your booking..."}
             </Text>
           </View>
         ) : (
           <TouchableOpacity style={styles.payBtn} onPress={handlePayAndConfirm} activeOpacity={0.8}>
             <Text style={styles.payBtnText}>
-              💳 {currentLang === "hi" ? "भुगतान करें और पुष्टि करें" : "Pay & Confirm"}
+              🙏 {currentLang === "hi" ? "बुकिंग की पुष्टि करें" : "Confirm Booking"}
             </Text>
           </TouchableOpacity>
         )}

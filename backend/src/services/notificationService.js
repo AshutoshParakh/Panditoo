@@ -346,14 +346,58 @@ const notifyUserBookingExpired = async ({ bookingId, userId, supportLink }) => {
   });
 };
 
+const notifyPanditVerificationDecision = async ({ panditId, approved, reason = "" }) => {
+  const message = approved
+    ? "Your pandit profile verification has been approved. You can now start receiving bookings."
+    : `Your pandit profile verification was rejected. Reason: ${reason}`;
+
+  await sendWhatsAppToRecipient({
+    recipientType: "pandit",
+    recipientId: panditId,
+    templateName: approved ? "pandit_verification_approved" : "pandit_verification_rejected",
+    params: approved ? [] : [reason],
+    message,
+  });
+
+  await sendPushToPandit(
+    panditId,
+    approved ? "Verification approved" : "Verification rejected",
+    approved ? "Your profile is now active for bookings." : `Reason: ${reason}`,
+    { approved, reason }
+  );
+};
+
+const notifyPanditDeactivated = async ({ panditId, reason }) => {
+  const message = `Your pandit profile has been deactivated. Reason: ${reason}`;
+
+  await sendWhatsAppToRecipient({
+    recipientType: "pandit",
+    recipientId: panditId,
+    templateName: "pandit_deactivated",
+    params: [reason],
+    message,
+  });
+
+  await sendPushToPandit(
+    panditId,
+    "Profile deactivated",
+    `Reason: ${reason}`,
+    { reason }
+  );
+};
 module.exports = {
   sendPushToUser,
   sendPushToPandit,
   sendWhatsApp,
+  sendWhatsAppToRecipient,
   notifySelectedPanditsPrepaymentConfirmed,
   notifyBookingConfirmed,
   notifyPanditAlreadyBooked,
   notifyUserSearchingWiderArea,
   sendBookingReminderNotifications,
   notifyUserBookingExpired,
+  notifyPanditVerificationDecision,
+  notifyPanditDeactivated,
 };
+
+

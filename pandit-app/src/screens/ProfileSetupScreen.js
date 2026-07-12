@@ -14,6 +14,7 @@ import Slider from "@react-native-community/slider"; // Check if installed or fa
 import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
+import * as ImagePicker from "expo-image-picker";
 
 const POOJA_OPTIONS = [
   { id: "Satyanarayan Pooja", label: "📈 Satyanarayan", labelHi: "📈 सत्यनारायण पूजा" },
@@ -109,22 +110,53 @@ export default function ProfileSetupScreen({ route, navigation }) {
     }
   };
 
-  const handleUploadPhoto = () => {
-    // Simulate photo upload
+  const handleUploadPhoto = async () => {
     Alert.alert(
       "Upload ID Proof",
       "Choose photo from Camera or Gallery",
       [
         {
           text: "Camera",
-          onPress: () => {
-            setIdPhoto("mock_uri_camera_image_aadhar.jpg");
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== "granted") {
+                Alert.alert("Permission Denied", "Camera permission is required to take a photo of your ID.");
+                return;
+              }
+              const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                quality: 0.8,
+              });
+              if (!result.canceled && result.assets && result.assets.length > 0) {
+                setIdPhoto(result.assets[0].uri);
+              }
+            } catch (err) {
+              console.warn("Camera access failed:", err);
+              Alert.alert("Error", "Could not open camera.");
+            }
           },
         },
         {
           text: "Gallery",
-          onPress: () => {
-            setIdPhoto("mock_uri_gallery_image_aadhar.jpg");
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== "granted") {
+                Alert.alert("Permission Denied", "Gallery permission is required to select a photo.");
+                return;
+              }
+              const result = await ImagePicker.launchImageLibraryAsync({
+                allowsEditing: true,
+                quality: 0.8,
+              });
+              if (!result.canceled && result.assets && result.assets.length > 0) {
+                setIdPhoto(result.assets[0].uri);
+              }
+            } catch (err) {
+              console.warn("Gallery access failed:", err);
+              Alert.alert("Error", "Could not open photo gallery.");
+            }
           },
         },
         { text: "Cancel", style: "cancel" },
@@ -177,10 +209,8 @@ export default function ProfileSetupScreen({ route, navigation }) {
 
       await register(panditData);
       setLoading(false);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Main" }],
-      });
+      // Removed manual navigation.reset because the AuthContext state updates token and pandit,
+      // which automatically triggers the switch to the Main screen in AppNavigator.
     } catch (err) {
       setLoading(false);
       Alert.alert("Registration Error", err.message || "Failed to submit registration. Try again.");
