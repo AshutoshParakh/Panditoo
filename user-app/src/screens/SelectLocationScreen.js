@@ -14,23 +14,13 @@ import MapView, { Marker } from "react-native-maps";
 import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 
-const DEFAULT_REGION = {
-  latitude: 22.7634,
-  longitude: 75.9101,
-  latitudeDelta: 0.015,
-  longitudeDelta: 0.015,
-};
-
 export default function SelectLocationScreen({ route, navigation }) {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language || "en";
   const { pooja, bookingDate, bookingTime } = route.params || {};
 
-  const [region, setRegion] = useState(DEFAULT_REGION);
-  const [markerCoords, setMarkerCoords] = useState({
-    latitude: DEFAULT_REGION.latitude,
-    longitude: DEFAULT_REGION.longitude,
-  });
+  const [region, setRegion] = useState(null);
+  const [markerCoords, setMarkerCoords] = useState(null);
   const [address, setAddress] = useState("");
   const [useGps, setUseGps] = useState(false);
 
@@ -63,9 +53,10 @@ export default function SelectLocationScreen({ route, navigation }) {
 
       setMarkerCoords(coords);
       setRegion({
-        ...DEFAULT_REGION,
         latitude: coords.latitude,
         longitude: coords.longitude,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
       });
 
       const [addressResult] = await Location.reverseGeocodeAsync(coords);
@@ -104,6 +95,7 @@ export default function SelectLocationScreen({ route, navigation }) {
   };
 
   const handleContinue = () => {
+    if (!markerCoords) return;
     const finalAddress = address.trim() || (currentLang === "hi" ? "मानचित्र स्थान" : "Map Selected Location");
     navigation.navigate("ChoosePandits", {
       pooja,
@@ -127,16 +119,15 @@ export default function SelectLocationScreen({ route, navigation }) {
           <View style={styles.mapContainer}>
             <MapView
               style={styles.map}
-              initialRegion={DEFAULT_REGION}
-              region={region}
+              region={region || undefined}
               onPress={handleMapPress}
             >
-              <Marker
+              {markerCoords && <Marker
                 coordinate={markerCoords}
                 title={currentLang === "hi" ? "पूजा स्थल" : "Pooja Location"}
                 description={currentLang === "hi" ? "पंडित यहाँ पहुँचेंगे" : "Pandit will arrive here"}
                 pinColor="#d97706"
-              />
+              />}
             </MapView>
           </View>
 
@@ -160,9 +151,9 @@ export default function SelectLocationScreen({ route, navigation }) {
           </View>
 
           <TouchableOpacity
-            style={[styles.continueBtn, (!address.trim() && !useGps) && styles.disabledBtn]}
+            style={[styles.continueBtn, (!address.trim() || !markerCoords) && styles.disabledBtn]}
             onPress={handleContinue}
-            disabled={!address.trim() && !useGps}
+            disabled={!address.trim() || !markerCoords}
             activeOpacity={0.8}
           >
             <Text style={styles.continueBtnText}>{t("location.continue")}</Text>
