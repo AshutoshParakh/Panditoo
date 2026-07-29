@@ -1,22 +1,22 @@
 import React, { useEffect } from "react";
+import { Text } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { I18nextProvider, useTranslation } from "react-i18next";
-import { Text, StyleSheet } from "react-native";
-
 import i18n, { loadStoredLanguage } from "./src/i18n";
 import { LanguageToggle } from "./src/components/LanguageToggle";
-
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import ExploreScreen from "./src/screens/ExploreScreen";
+import ExploreScreen from "./src/screens/ExploreScreen";
 import BookingsScreen from "./src/screens/BookingsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import PoojaDetailsScreen from "./src/screens/PoojaDetailsScreen";
+import PanditDetailsScreen from "./src/screens/PanditDetailsScreen";
 import SelectDateTimeScreen from "./src/screens/SelectDateTimeScreen";
 import SelectLocationScreen from "./src/screens/SelectLocationScreen";
 import ChoosePanditsScreen from "./src/screens/ChoosePanditsScreen";
@@ -30,7 +30,6 @@ import AccountDetailScreen from "./src/screens/AccountDetailScreen";
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Main Tab Navigator
 function TabNavigator() {
   const { t } = useTranslation();
 
@@ -109,7 +108,6 @@ function TabNavigator() {
   );
 }
 
-// App Root Component
 function AppContent() {
   const { t } = useTranslation();
 
@@ -236,12 +234,4 @@ function AppContent() {
   );
 }
 
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <I18nextProvider i18n={i18n}>
-        <AppContent />
-      </I18nextProvider>
-    </SafeAreaProvider>
-  );
-}
+export default function App() { return <SafeAreaProvider><I18nextProvider i18n={i18n}><AppContent /></I18nextProvider></SafeAreaProvider>; }

@@ -4,6 +4,7 @@ const {
   createBooking,
   getBookingById,
   listBookingsForUser,
+  cancelBookingByUser,
   handlePanditBookingResponse,
   markBookingCompletedByPandit,
   listRequestsForPandit,
@@ -18,6 +19,7 @@ const router = express.Router();
 
 router.post("/create", authenticateUser, validate(createBookingSchema), createBooking);
 router.get("/user/:userId", authenticateUser, listBookingsForUser);
+router.patch("/:bookingId/cancel", authenticateUser, cancelBookingByUser);
 router.get("/pandit/requests", authenticatePandit, listRequestsForPandit);
 router.get("/pandit/bookings", authenticatePandit, listBookingsForPandit);
 router.get("/pandit/bookings/:id", authenticatePandit, getBookingByIdForPandit);

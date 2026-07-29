@@ -16,21 +16,9 @@ const listNearbyPandits = async (req, res, next) => {
 
     const pandits = await findPanditsWithinRadius(lat, lng, radius);
 
-    // Map pandits and include experience_years dynamically
-    const data = pandits.map((p) => {
-      // Calculate a stable pseudo-random experience based on the id hash
-      const hashInt = parseInt(p.id.replace(/-/g, "").slice(0, 4), 16);
-      const experience_years = (hashInt % 15) + 3; // between 3 and 17 years
-
-      return {
-        ...p,
-        experience_years,
-      };
-    });
-
     return res.status(200).json({
       success: true,
-      data,
+      data: pandits,
     });
   } catch (error) {
     return next(error);

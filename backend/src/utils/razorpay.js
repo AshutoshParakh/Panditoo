@@ -56,7 +56,7 @@ const createRazorpayOrder = async ({ amount, receipt, notes = {} }) => {
 };
 
 const verifyPaymentSignature = ({ orderId, paymentId, signature }) => {
-  if (signature === "stub_signature" || (isStubMode() && String(orderId).startsWith("order_stub_"))) {
+  if (isStubMode() && signature === "stub_signature" && String(orderId).startsWith("order_stub_")) {
     return true;
   }
 

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,12 +9,28 @@ import {
   Linking,
   Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
 export default function BookingConfirmedScreen({ route, navigation }) {
   const { t, i18n } = useTranslation();
   const currentLang = i18n.language || "en";
-  const { booking } = route.params || {};
+  const initialBooking = route.params?.booking;
+  const [booking, setBooking] = useState(initialBooking);
+
+  useEffect(() => {
+    let active = true;
+    if (!initialBooking?.id) return () => { active = false; };
+    AsyncStorage.getItem("user-app-token").then(async (token) => {
+      if (!token) return;
+      const response = await fetch(`${API_URL}/bookings/${initialBooking.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const json = await response.json();
+      if (active && response.ok && json.success) setBooking(json.data);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [initialBooking?.id]);
 
   const handleBackToHome = () => {
     navigation.reset({
@@ -24,7 +40,8 @@ export default function BookingConfirmedScreen({ route, navigation }) {
   };
 
   const handleCall = () => {
-    const phone = booking?.confirmed_pandit?.phone || "9990004002";
+    const phone = booking?.confirmed_pandit?.phone;
+    if (!phone) { Alert.alert("Phone unavailable", "This pandit's phone number is not available."); return; }
     Linking.openURL(`tel:${phone}`).catch(() => {
       Alert.alert(
         currentLang === "hi" ? "त्रुटि" : "Error",
@@ -36,7 +53,8 @@ export default function BookingConfirmedScreen({ route, navigation }) {
   };
 
   const handleWhatsApp = () => {
-    const phone = booking?.confirmed_pandit?.phone || "9990004002";
+    const phone = booking?.confirmed_pandit?.phone;
+    if (!phone) { Alert.alert("Phone unavailable", "This pandit's phone number is not available."); return; }
     const cleanPhone = phone.replace(/\D/g, "");
     Linking.openURL(`https://wa.me/${cleanPhone}`).catch(() => {
       Alert.alert(
@@ -46,20 +64,10 @@ export default function BookingConfirmedScreen({ route, navigation }) {
     });
   };
 
-  const handleAddToCalendar = () => {
-    Alert.alert(
-      currentLang === "hi" ? "कैलेंडर" : "Calendar",
-      currentLang === "hi"
-        ? "पूजा का समय आपके डिवाइस कैलेंडर में सफलतापूर्वक जोड़ दिया गया है!"
-        : "Pooja schedule has been successfully added to your device calendar!",
-      [{ text: t("common.ok") || "OK" }]
-    );
-  };
-
   const poojaName =
     currentLang === "hi"
       ? booking?.name_hi || booking?.pooja?.name_hi || "पूजा समारोह"
-      : booking?.name_en || booking?.pooja?.name_en || "Pooja Ceremony";
+      : booking?.name_en || booking?.pooja?.name_en || "Pooja";
   const pandit = booking?.confirmed_pandit || {};
 
   return (
@@ -90,7 +98,11 @@ export default function BookingConfirmedScreen({ route, navigation }) {
             </View>
             <View style={styles.panditInfo}>
               <Text style={styles.panditName}>{pandit.name || "Pandit details unavailable"}</Text>
+<<<<<<< HEAD
               <Text style={styles.panditRating}>⭐ {pandit.rating || "4.9"}</Text>
+=======
+              {pandit.rating != null ? <Text style={styles.panditRating}>⭐ {pandit.rating}</Text> : null}
+>>>>>>> 56e6936cec1fbec5221ac0633afad7ffd253270f
             </View>
           </View>
 
@@ -137,13 +149,6 @@ export default function BookingConfirmedScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
-
-        {/* Add to Calendar Button */}
-        <TouchableOpacity style={styles.calendarBtn} onPress={handleAddToCalendar} activeOpacity={0.8}>
-          <Text style={styles.calendarBtnText}>
-            📅 {currentLang === "hi" ? "कैलेंडर में जोड़ें" : "Add to Calendar"}
-          </Text>
-        </TouchableOpacity>
 
         {/* Go back to Home */}
         <TouchableOpacity style={styles.btn} onPress={handleBackToHome} activeOpacity={0.8}>
