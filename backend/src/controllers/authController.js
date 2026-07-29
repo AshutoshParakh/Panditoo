@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 
-const { query } = require("../config/db");
+const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
 const { signAuthToken } = require("../utils/jwt");
 
@@ -384,6 +384,40 @@ const getCurrentUser = async (req, res, next) => {
   }
 };
 
+const updateCurrentUser = async (req, res, next) => {
+  try {
+    if (req.user.type !== "user") return res.status(403).json({ success: false, message: "User account required" });
+    const name = String(req.body.name || "").trim();
+    const email = req.body.email ? String(req.body.email).trim() : null;
+    const address = req.body.address ? String(req.body.address).trim() : null;
+    if (!name || name.length > 150) return res.status(400).json({ success: false, message: "A valid name is required" });
+    const result = await query(
+      `UPDATE users SET name = $1, email = $2, address = $3, updated_at = NOW()
+       WHERE id = $4 RETURNING id, name, phone, email, address, source`,
+      [name, email, address, req.user.id]
+    );
+    return res.status(200).json({ success: true, user: result.rows[0] });
+  } catch (error) { return next(error); }
+};
+
+const deleteCurrentUser = async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    if (req.user.type !== "user") return res.status(403).json({ success: false, message: "User account required" });
+    await client.query("BEGIN");
+    await client.query("DELETE FROM ratings WHERE booking_id IN (SELECT id FROM bookings WHERE user_id = $1)", [req.user.id]);
+    await client.query("DELETE FROM payments WHERE booking_id IN (SELECT id FROM bookings WHERE user_id = $1)", [req.user.id]);
+    await client.query("DELETE FROM booking_requests WHERE booking_id IN (SELECT id FROM bookings WHERE user_id = $1)", [req.user.id]);
+    await client.query("DELETE FROM bookings WHERE user_id = $1", [req.user.id]);
+    await client.query("DELETE FROM users WHERE id = $1", [req.user.id]);
+    await client.query("COMMIT");
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch (_) {}
+    return next(error);
+  } finally { client.release(); }
+};
+
 module.exports = {
   sendUserOtp,
   verifyUserOtp,
@@ -392,5 +426,7 @@ module.exports = {
   registerUser,
   registerPandit,
   getCurrentUser,
+  updateCurrentUser,
+  deleteCurrentUser,
   adminLogin,
 };

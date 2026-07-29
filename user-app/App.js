@@ -13,6 +13,7 @@ import { LanguageToggle } from "./src/components/LanguageToggle";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import HomeScreen from "./src/screens/HomeScreen";
+import ExploreScreen from "./src/screens/ExploreScreen";
 import BookingsScreen from "./src/screens/BookingsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import PoojaDetailsScreen from "./src/screens/PoojaDetailsScreen";
@@ -24,6 +25,7 @@ import ConfirmBookingScreen from "./src/screens/ConfirmBookingScreen";
 import WaitingForPanditScreen from "./src/screens/WaitingForPanditScreen";
 import BookingConfirmedScreen from "./src/screens/BookingConfirmedScreen";
 import RateExperienceScreen from "./src/screens/RateExperienceScreen";
+import AccountDetailScreen from "./src/screens/AccountDetailScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -35,6 +37,7 @@ function TabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
+        headerShown: false,
         headerStyle: {
           backgroundColor: "#6a1b1a",
         },
@@ -69,6 +72,15 @@ function TabNavigator() {
           tabBarIcon: ({ color, size }) => (
             <Text style={{ color, fontSize: size }}>🏠</Text>
           ),
+        }}
+      />
+      <Tab.Screen
+        name="ExploreTab"
+        component={ExploreScreen}
+        options={{
+          title: "Explore",
+          tabBarLabel: "Explore",
+          tabBarIcon: ({ color, size }) => <Text style={{ color, fontSize: size }}>◉</Text>,
         }}
       />
       <Tab.Screen
@@ -205,6 +217,11 @@ function AppContent() {
           options={{
             headerShown: false,
           }}
+        />
+        <Stack.Screen
+          name="AccountDetail"
+          component={AccountDetailScreen}
+          options={({ route }) => ({ title: route.params?.title || "Account" })}
         />
         <Stack.Screen
           name="RateExperience"

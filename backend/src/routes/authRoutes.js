@@ -8,6 +8,8 @@ const {
   registerUser,
   registerPandit,
   getCurrentUser,
+  updateCurrentUser,
+  deleteCurrentUser,
   adminLogin,
 } = require("../controllers/authController");
 const { verifyAuthToken } = require("../utils/jwt");
@@ -42,5 +44,7 @@ router.post("/pandit/verify-otp", verifyPanditOtp);
 router.post("/pandit/register", registerPandit);
 router.post("/admin/login", adminLogin);
 router.get("/me", authenticateGeneric, getCurrentUser);
+router.patch("/me", authenticateGeneric, updateCurrentUser);
+router.delete("/me", authenticateGeneric, deleteCurrentUser);
 
 module.exports = router;

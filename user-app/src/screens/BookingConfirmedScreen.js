@@ -89,7 +89,7 @@ export default function BookingConfirmedScreen({ route, navigation }) {
               <Text style={styles.avatarIcon}>👤</Text>
             </View>
             <View style={styles.panditInfo}>
-              <Text style={styles.panditName}>{pandit.name || "Pandit Rajesh Shastri"}</Text>
+              <Text style={styles.panditName}>{pandit.name || "Pandit details unavailable"}</Text>
               <Text style={styles.panditRating}>⭐ {pandit.rating || "4.9"}</Text>
             </View>
           </View>

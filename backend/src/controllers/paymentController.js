@@ -273,8 +273,25 @@ const handleRazorpayWebhook = async (req, res, next) => {
   }
 };
 
+const listUserPayments = async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT p.id, p.amount, p.type, p.status, p.razorpay_payment_id, p.created_at,
+              b.id AS booking_id, pt.name_en, pt.name_hi
+       FROM payments p
+       INNER JOIN bookings b ON b.id = p.booking_id
+       INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
+       WHERE b.user_id = $1
+       ORDER BY p.created_at DESC`,
+      [req.user.id]
+    );
+    return res.status(200).json({ success: true, data: result.rows });
+  } catch (error) { return next(error); }
+};
+
 module.exports = {
   createPaymentOrder,
   verifyPayment,
   handleRazorpayWebhook,
+  listUserPayments,
 };

@@ -21,8 +21,6 @@ export default function ChoosePanditsScreen({ route, navigation }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const getFallbackPandits = () => [];
-
   const fetchNearbyPandits = async () => {
     setLoading(true);
     try {
@@ -33,11 +31,11 @@ export default function ChoosePanditsScreen({ route, navigation }) {
       if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
         setPandits(json.data);
       } else {
-        setPandits(getFallbackPandits());
+        setPandits([]);
       }
     } catch (error) {
-      console.warn("Failed to fetch nearby pandits, using fallback: ", error.message);
-      setPandits(getFallbackPandits());
+      console.warn("Failed to fetch nearby pandits:", error.message);
+      setPandits([]);
     } finally {
       setLoading(false);
     }
