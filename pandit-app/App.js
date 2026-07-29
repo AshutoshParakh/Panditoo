@@ -128,7 +128,10 @@ function AppNavigator() {
   // If not logged in: Language Selection stack
   // If logged in but profile is not completed (e.g. name or specializations is missing): ProfileSetup
   // If registered and complete: Main bottom tab navigator
-  const isProfileComplete = pandit && pandit.name && pandit.specializations && pandit.specializations.length > 0;
+  const hasSpecializations = Array.isArray(pandit?.specializations)
+    ? pandit.specializations.length > 0
+    : Boolean(pandit?.specializations);
+  const isProfileComplete = Boolean(pandit && pandit.name && hasSpecializations);
 
   return (
     <NavigationContainer>

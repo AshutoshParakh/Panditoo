@@ -15,6 +15,10 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
+import {
+  speakBookingNotification,
+  notifyNewBookingArrival,
+} from "../utils/notificationService";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
@@ -25,20 +29,28 @@ export default function RequestsScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  const prevRequestsCountRef = React.useRef(0);
+
   useEffect(() => {
+    let intervalId;
     if (pandit) {
       if (pandit.is_verified) {
         fetchRequests();
+        intervalId = setInterval(() => {
+          fetchRequests(true);
+        }, 5000);
       } else {
-        // If not verified, make sure badge is 0
         setPendingRequestsCount(0);
       }
     }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [pandit]);
 
-  const fetchRequests = async () => {
+  const fetchRequests = async (isBackground = false) => {
     if (!pandit) return;
-    setLoading(true);
+    if (!isBackground) setLoading(true);
     try {
       const res = await fetch(`${API_URL}/pandits/${pandit.id}/requests?status=pending`, {
         headers: {
@@ -47,14 +59,22 @@ export default function RequestsScreen({ navigation }) {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setRequests(data.data || []);
-        setPendingRequestsCount((data.data || []).length);
+        const fetchedList = data.data || [];
+        
+        // Check if new booking request arrived
+        if (fetchedList.length > prevRequestsCountRef.current) {
+          const latestPooja = fetchedList[0]?.pooja_name_hi || fetchedList[0]?.pooja_name_en;
+          notifyNewBookingArrival(latestPooja);
+        }
+
+        prevRequestsCountRef.current = fetchedList.length;
+        setRequests(fetchedList);
+        setPendingRequestsCount(fetchedList.length);
       } else {
         console.warn("Failed to fetch pending requests:", data.message);
       }
     } catch (error) {
       console.warn("Error fetching pending requests, running fallback:", error);
-      // Fallback mock requests for demo mode if backend is offline/mock
       const mockData = [
         {
           request_id: "mock-req-1",
@@ -75,29 +95,11 @@ export default function RequestsScreen({ navigation }) {
             { item_en: "Kalash", item_hi: "कलश", brought_by: "user" },
           ],
         },
-        {
-          request_id: "mock-req-2",
-          booking_id: "mock-booking-2",
-          pooja_name_en: "Ganesh Pooja",
-          pooja_name_hi: "गणेश पूजा",
-          user_name: "Vikas Patel",
-          user_phone: "9911223344",
-          booking_date: "2026-07-20T00:00:00.000Z",
-          booking_time: "11:30:00",
-          address: "House 52, Gali 6, Shalimar Bagh, Delhi",
-          total_price: "2100.00",
-          pandit_payout_amount: "1470.00",
-          distance_km: 7.2,
-          samagri_list: [
-            { item_en: "Ganesh thali setup", item_hi: "गणेश थाली व्यवस्था", brought_by: "pandit" },
-            { item_en: "Durva grass", item_hi: "दूर्वा घास", brought_by: "user" },
-          ],
-        },
       ];
       setRequests(mockData);
       setPendingRequestsCount(mockData.length);
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
@@ -235,6 +237,17 @@ export default function RequestsScreen({ navigation }) {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <TouchableOpacity
+            style={styles.testVoiceBtn}
+            onPress={() => speakBookingNotification("नमस्ते! Panditoo में, आपके लिए नई बुकिंग आई है।")}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.testVoiceText}>
+              🔔 🔊 टेस्ट मन्दिर घंटी व साउंड ("नमस्ते! Panditoo में आपके लिए नई बुकिंग आई है")
+            </Text>
+          </TouchableOpacity>
+        }
         ListEmptyComponent={
           !loading && (
             <View style={styles.emptyContainer}>
@@ -599,5 +612,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999,
+  },
+  testVoiceBtn: {
+    backgroundColor: "#fff7ed",
+    borderWidth: 1.5,
+    borderColor: "#ea580c",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#ea580c",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  testVoiceText: {
+    color: "#c2410c",
+    fontSize: 14,
+    fontWeight: "750",
   },
 });

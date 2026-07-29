@@ -7,6 +7,17 @@ import { LANGUAGE_STORAGE_KEY } from "../i18n";
 export default function OnboardingScreen({ navigation }) {
   const { t, i18n } = useTranslation();
 
+  React.useEffect(() => {
+    AsyncStorage.getItem("user-app-token").then((token) => {
+      if (token) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Main" }],
+        });
+      }
+    });
+  }, []);
+
   const handleLanguageSelect = async (lang) => {
     await i18n.changeLanguage(lang);
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, lang);

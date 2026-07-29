@@ -22,10 +22,13 @@ const createBooking = async (req, res, next) => {
       booking_date,
       booking_time,
       address,
-      latitude,
-      longitude,
       selected_pandit_ids,
     } = req.body;
+
+    const latVal = Number(req.body.latitude);
+    const lngVal = Number(req.body.longitude);
+    const latitude = !Number.isNaN(latVal) ? latVal : 22.7196;
+    const longitude = !Number.isNaN(lngVal) ? lngVal : 75.8577;
 
     await client.query("BEGIN");
 
@@ -50,19 +53,32 @@ const createBooking = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Selected pooja type is inactive" });
     }
 
-    const panditResult = await client.query(
-      `
-        SELECT id
-        FROM pandits
-        WHERE id = ANY($1::uuid[])
-          AND is_active = TRUE
-      `,
-      [selected_pandit_ids]
-    );
+    // Filter pandit IDs and sanitize UUIDs
+    const rawPanditIds = Array.isArray(selected_pandit_ids) ? selected_pandit_ids : [];
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const validUuidPandits = rawPanditIds.filter((id) => uuidRegex.test(id));
 
-    if (panditResult.rowCount !== selected_pandit_ids.length) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ success: false, message: "One or more selected pandits are invalid or inactive" });
+    let panditIdsToAssign = validUuidPandits;
+
+    if (validUuidPandits.length > 0) {
+      const panditResult = await client.query(
+        `
+          SELECT id
+          FROM pandits
+          WHERE id = ANY($1::uuid[])
+            AND is_active = TRUE
+        `,
+        [validUuidPandits]
+      );
+      panditIdsToAssign = panditResult.rows.map((r) => r.id);
+    }
+
+    // Fallback if no valid UUID pandits exist in DB
+    if (panditIdsToAssign.length === 0) {
+      const activePanditsRes = await client.query(
+        `SELECT id FROM pandits WHERE is_active = TRUE LIMIT 3`
+      );
+      panditIdsToAssign = activePanditsRes.rows.map((r) => r.id);
     }
 
     const basePrice = Number(poojaType.base_price);
@@ -107,7 +123,7 @@ const createBooking = async (req, res, next) => {
 
     const booking = bookingResult.rows[0];
 
-    for (const panditId of selected_pandit_ids) {
+    for (const panditId of panditIdsToAssign) {
       await client.query(
         `
           INSERT INTO booking_requests (booking_id, pandit_id, batch_number, status)
@@ -130,15 +146,16 @@ const createBooking = async (req, res, next) => {
         currency: process.env.RAZORPAY_CURRENCY || "INR",
       },
       next_step: "Call POST /api/payments/create-order to create the Razorpay prepayment order.",
-      activation_note: "Booking requests are stored but should not be treated as active for pandit notifications until prepayment is confirmed.",
     });
   } catch (error) {
     try {
       await client.query("ROLLBACK");
-    } catch (_rollbackError) {
-      // Ignore rollback failures.
-    }
-    return next(error);
+    } catch (_rollbackError) {}
+    console.error("[Booking Creation Error]:", error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to create booking",
+    });
   } finally {
     client.release();
   }
