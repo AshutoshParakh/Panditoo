@@ -7,7 +7,6 @@ import {
   ScrollView,
   SafeAreaView,
   ActivityIndicator,
-  Modal,
   Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,15 +27,14 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     longitude,
     selectedPanditIds,
     selectedPandits,
+    existingBooking,
   } = route.params || {};
 
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [paymentError, setPaymentError] = useState("");
-  const [draftBooking, setDraftBooking] = useState(null);
-  const [showSimulationModal, setShowSimulationModal] = useState(false);
-  const [pendingOrder, setPendingOrder] = useState(null);
+  const [draftBooking, setDraftBooking] = useState(existingBooking || null);
 
   // Get total price and calculate prepayment
   const totalPrice = Number(pooja?.base_price || 0);
@@ -54,14 +52,15 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     let currentBooking = draftBooking;
 
     try {
+      const authToken = token || await AsyncStorage.getItem("user-app-token");
+      if (!authToken) throw new Error("Please log in before confirming a booking.");
+      if (!token) setToken(authToken);
       // 1. Create Booking Draft if not already created
       if (!currentBooking) {
         const headers = {
           "Content-Type": "application/json",
         };
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
+        headers["Authorization"] = `Bearer ${authToken}`;
 
         const bookingRes = await fetch(`${API_URL}/bookings/create`, {
           method: "POST",
@@ -71,8 +70,8 @@ export default function ConfirmBookingScreen({ route, navigation }) {
             booking_date: bookingDate,
             booking_time: bookingTime,
             address,
-            latitude: latitude || 22.7634,
-            longitude: longitude || 75.9101,
+            latitude,
+            longitude,
             selected_pandit_ids: selectedPanditIds,
           }),
         });
@@ -90,9 +89,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
       const orderHeaders = {
         "Content-Type": "application/json",
       };
-      if (token) {
-        orderHeaders["Authorization"] = `Bearer ${token}`;
-      }
+      orderHeaders["Authorization"] = `Bearer ${authToken}`;
 
       const orderRes = await fetch(`${API_URL}/payments/create-order`, {
         method: "POST",
@@ -108,11 +105,8 @@ export default function ConfirmBookingScreen({ route, navigation }) {
       }
 
       const { razorpay_order, razorpay_key_id } = orderData;
-      setPendingOrder(razorpay_order);
-
       if (razorpay_order.is_stub) {
-        // If the backend is running in stub mode (no real keys configured), show the simulation modal
-        setShowSimulationModal(true);
+        throw new Error("Online payment is not configured. Please contact support.");
       } else {
         // Attempt to open Razorpay payment gateway
         try {
@@ -121,12 +115,12 @@ export default function ConfirmBookingScreen({ route, navigation }) {
           }
 
           // Prefill details
-          let userPhone = "9999999999";
-          let userEmail = "customer@example.com";
+          let userPhone = "";
+          let userEmail = "";
           try {
-            const profileRes = await fetch(`${API_URL}/auth/profile`, {
+            const profileRes = await fetch(`${API_URL}/auth/me`, {
               headers: {
-                "Authorization": `Bearer ${token}`
+                "Authorization": `Bearer ${authToken}`
               }
             });
             const profileJson = await profileRes.json();
@@ -138,16 +132,14 @@ export default function ConfirmBookingScreen({ route, navigation }) {
 
           const options = {
             description: `Prepayment for ${pooja?.name}`,
-            image: "https://i.imgur.com/3g7urwK.png",
             currency: razorpay_order.currency || "INR",
             key: razorpay_key_id,
             amount: razorpay_order.amount,
             name: "Panditoo",
             order_id: razorpay_order.id,
             prefill: {
-              email: userEmail,
-              contact: userPhone,
-              name: "Customer",
+              ...(userEmail ? { email: userEmail } : {}),
+              ...(userPhone ? { contact: userPhone } : {}),
             },
             theme: { color: "#6a1b1a" },
           };
@@ -175,9 +167,9 @@ export default function ConfirmBookingScreen({ route, navigation }) {
               setLoading(false);
             });
         } catch (checkoutErr) {
-          console.warn("Razorpay native checkout failed to load, falling back to simulation modal:", checkoutErr.message);
-          // Fallback to simulation modal in Expo Go/development environments where native module isn't built
-          setShowSimulationModal(true);
+          console.warn("Razorpay native checkout failed:", checkoutErr.message);
+          setPaymentError("Payment service is unavailable on this device. Please try again later.");
+          setLoading(false);
         }
       }
     } catch (err) {
@@ -225,16 +217,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     }
   };
 
-  const handleSimulateSuccess = async () => {
-    setShowSimulationModal(false);
-    if (!draftBooking || !pendingOrder) return;
-    const mockPaymentId = `pay_mock_${Math.random().toString(36).substring(7)}`;
-    const mockSignature = "stub_signature";
-    await verifyPayment(draftBooking.id, pendingOrder.id, mockPaymentId, mockSignature);
-  };
-
-  const handleSimulateFailure = () => {
-    setShowSimulationModal(false);
+  const handlePaymentFailure = () => {
     setPaymentError(
       currentLang === "hi"
         ? "भुगतान विफल हो गया। कृपया पुन: प्रयास करें।"
@@ -332,36 +315,6 @@ export default function ConfirmBookingScreen({ route, navigation }) {
         )}
       </ScrollView>
 
-      {/* Simulation Modal for Non-native / Test Environments */}
-      <Modal
-        visible={showSimulationModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowSimulationModal(false)}
-      >
-        <View style={styles.modalBg}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Payment Simulation</Text>
-            <Text style={styles.modalDesc}>
-              Razorpay native module could not be loaded. Please choose an option to simulate the checkout response.
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalSuccessBtn]}
-                onPress={handleSimulateSuccess}
-              >
-                <Text style={styles.modalBtnTextSuccess}>Simulate Success</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalFailBtn]}
-                onPress={handleSimulateFailure}
-              >
-                <Text style={styles.modalBtnTextFail}>Simulate Failure</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

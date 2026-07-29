@@ -21,23 +21,21 @@ export default function ChoosePanditsScreen({ route, navigation }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const getFallbackPandits = () => [];
-
   const fetchNearbyPandits = async () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `${API_URL}/pandits/nearby?lat=${latitude || 22.7634}&lng=${longitude || 75.9101}&radius=50`
+        `${API_URL}/pandits/nearby?lat=${latitude}&lng=${longitude}&radius=50`
       );
       const json = await response.json();
       if (json && json.success && Array.isArray(json.data) && json.data.length > 0) {
         setPandits(json.data);
       } else {
-        setPandits(getFallbackPandits());
+        setPandits([]);
       }
     } catch (error) {
-      console.warn("Failed to fetch nearby pandits, using fallback: ", error.message);
-      setPandits(getFallbackPandits());
+      console.warn("Failed to fetch nearby pandits:", error.message);
+      setPandits([]);
     } finally {
       setLoading(false);
     }
@@ -89,13 +87,11 @@ export default function ChoosePanditsScreen({ route, navigation }) {
             </View>
             <View style={styles.infoCol}>
               <Text style={styles.panditName}>{item.name}</Text>
-              <View style={styles.ratingRow}>
-                <Text style={styles.ratingText}>⭐ {item.rating || "4.5"}</Text>
-                <Text style={styles.dot}>•</Text>
-                <Text style={styles.expText}>
-                  {t("choosePandits.experience", { yrs: item.experience_years || 5 })}
-                </Text>
-              </View>
+              {(item.rating != null || item.experience_years != null) && <View style={styles.ratingRow}>
+                {item.rating != null ? <Text style={styles.ratingText}>⭐ {item.rating}</Text> : null}
+                {item.rating != null && item.experience_years != null ? <Text style={styles.dot}>•</Text> : null}
+                {item.experience_years != null ? <Text style={styles.expText}>{t("choosePandits.experience", { yrs: item.experience_years })}</Text> : null}
+              </View>}
             </View>
           </View>
 

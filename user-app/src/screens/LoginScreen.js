@@ -43,7 +43,6 @@ export default function LoginScreen({ navigation }) {
   const [source, setSource] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [testMode, setTestMode] = useState(false);
 
   const handleSendOtp = async () => {
     setError("");
@@ -62,15 +61,11 @@ export default function LoginScreen({ navigation }) {
       if (res.ok && data.success) {
         setOtpSent(true);
       } else {
-        setError(data.message || "Failed to send OTP. Test mode enabled.");
-        setOtpSent(true);
-        setTestMode(true);
+        setError(data.message || "Failed to send OTP. Please try again.");
       }
     } catch (err) {
-      console.warn("Auth send-otp failed, using fallback:", err.message);
-      setError("Server connection failed. Test mode enabled.");
-      setOtpSent(true);
-      setTestMode(true);
+      console.warn("Auth send-otp failed:", err.message);
+      setError("Server connection failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -84,20 +79,6 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      if (testMode) {
-        setTimeout(async () => {
-          setLoading(false);
-          const mockToken = "mock-jwt-token-for-testing";
-          await AsyncStorage.setItem("user-app-token", mockToken);
-          await AsyncStorage.setItem("user-id", "mock-user-id");
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Main" }],
-          });
-        }, 1000);
-        return;
-      }
-
       const res = await fetchWithTimeout(`${API_URL}/auth/user/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -235,7 +216,6 @@ export default function LoginScreen({ navigation }) {
                         setOtpSent(false);
                         setOtp("");
                         setError("");
-                        setTestMode(false);
                       }}
                       disabled={loading}
                     >
@@ -315,7 +295,6 @@ export default function LoginScreen({ navigation }) {
                     setAddress("");
                     setSource("");
                     setError("");
-                    setTestMode(false);
                   }}
                   disabled={loading}
                 >

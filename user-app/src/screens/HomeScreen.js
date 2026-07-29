@@ -1,234 +1,51 @@
-import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  SafeAreaView,
-} from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import * as Location from "expo-location";
+import HomeHeader from "../components/home/HomeHeader";
+import HeroBanner from "../components/home/HeroBanner";
+import UpcomingCeremony from "../components/home/UpcomingCeremony";
+import PopularPoojas from "../components/home/PopularPoojas";
+import NearbyPandits from "../components/home/NearbyPandits";
+import TrustStrip from "../components/home/TrustStrip";
+import { fetchHomeData, getCachedHomeData } from "../services/homeApi";
+import { colors } from "../theme/homeTheme";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
-
-const getEmojiForPooja = (name) => {
-  const n = name.toLowerCase();
-  if (n.includes("ganesha") || n.includes("गणेश")) return "🕉️";
-  if (n.includes("satyanarayan") || n.includes("सत्यनारायण")) return "📖";
-  if (n.includes("griha") || n.includes("गृह")) return "🏡";
-  if (n.includes("jaap") || n.includes("जाप") || n.includes("mrityunjaya")) return "📿";
-  if (n.includes("lakshmi") || n.includes("लक्ष्मी")) return "🪙";
-  return "🌸";
-};
+const emptyData = { poojas: [], pandits: [], bookings: [], profile: null };
 
 export default function HomeScreen({ navigation }) {
-  const { t, i18n } = useTranslation();
-  const currentLang = i18n.language || "en";
-  const [poojas, setPoojas] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { i18n } = useTranslation();
+  const focused = useIsFocused();
+  const insets = useSafeAreaInsets();
+  const language = i18n.language || "en";
+  const [data, setData] = useState(() => getCachedHomeData(language) || emptyData);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const getFallbackPoojas = () => [
-    {
-      id: "f1",
-      name: currentLang === "hi" ? "गणेश पूजा" : "Ganesha Pooja",
-      description: currentLang === "hi"
-        ? "विघ्नहर्ता भगवान श्री गणेश की कृपा प्राप्त करने के लिए विशेष पूजा।"
-        : "A special ritual to invoke the blessings of Lord Ganesha, the remover of obstacles.",
-      base_price: 2100,
-      duration_minutes: 60,
-      samagri_list: [
-        { item_name_en: "Gangajal", item_name_hi: "गंगाजल", quantity: "1 bottle", provided_by: "pandit" },
-        { item_name_en: "Diya & Oil", item_name_hi: "दीया और तेल", quantity: "1 set", provided_by: "user" },
-        { item_name_en: "Coconut", item_name_hi: "नारियल", quantity: "1 piece", provided_by: "user" },
-        { item_name_en: "Flowers", item_name_hi: "फूल", quantity: "1 bunch", provided_by: "user" },
-      ],
-    },
-    {
-      id: "f2",
-      name: currentLang === "hi" ? "सत्यनारायण कथा" : "Satyanarayan Katha",
-      description: currentLang === "hi"
-        ? "सुख, शांति और समृद्धि के लिए श्री सत्यनारायण व्रत एवं कथा पूजन।"
-        : "Vrat and path ritual dedicated to Lord Vishnu for family well-being and prosperity.",
-      base_price: 3500,
-      duration_minutes: 120,
-      samagri_list: [
-        { item_name_en: "Pooja Book", item_name_hi: "पूजा पुस्तक", quantity: "1 unit", provided_by: "pandit" },
-        { item_name_en: "Sandalwood Paste", item_name_hi: "चंदन", quantity: "1 cup", provided_by: "pandit" },
-        { item_name_en: "Banana leaves", item_name_hi: "केले के पत्ते", quantity: "4 pieces", provided_by: "user" },
-        { item_name_en: "Sweets (Prasad)", item_name_hi: "प्रसाद", quantity: "500g", provided_by: "user" },
-      ],
-    },
-    {
-      id: "f3",
-      name: currentLang === "hi" ? "गृह प्रवेश पूजा" : "Griha Pravesh Pooja",
-      description: currentLang === "hi"
-        ? "नए घर में सुख-शांति और सकारात्मक ऊर्जा के प्रवेश के लिए गृह प्रवेश पूजन।"
-        : "Traditional housewarming ceremony to purify the home and invite positive energy.",
-      base_price: 5100,
-      duration_minutes: 180,
-      samagri_list: [
-        { item_name_en: "Havan Kund", item_name_hi: "हवन कुंड", quantity: "1 unit", provided_by: "pandit" },
-        { item_name_en: "Havan Samagri", item_name_hi: "हवन सामग्री", quantity: "1 kg", provided_by: "pandit" },
-        { item_name_en: "Mango Leaves", item_name_hi: "आम के पत्ते", quantity: "11 pieces", provided_by: "user" },
-        { item_name_en: "Milk", item_name_hi: "दूध", quantity: "1 litre", provided_by: "user" },
-      ],
-    },
-  ];
-
-  const fetchPoojas = async () => {
-    setLoading(true);
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
     try {
-      const response = await fetch(`${API_URL}/pooja-types?lang=${currentLang}`);
-      const json = await response.json();
-      if (json && json.success && Array.isArray(json.data)) {
-        setPoojas(json.data);
-      } else {
-        setPoojas(getFallbackPoojas());
-      }
-    } catch (error) {
-      console.warn("Failed to fetch poojas, utilizing localized fallback: ", error.message);
-      setPoojas(getFallbackPoojas());
-    } finally {
-      setLoading(false);
-    }
-  };
+      let coordinates = null;
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status === "granted") {
+          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          coordinates = position.coords;
+        }
+      } catch (_) {}
+      setData(await fetchHomeData(language, coordinates));
+    } finally { setRefreshing(false); }
+  }, [language]);
 
-  useEffect(() => {
-    fetchPoojas();
-  }, [currentLang]);
+  useEffect(() => { if (focused) load(); }, [focused, load]);
 
-  const renderPoojaCard = ({ item }) => {
-    const emoji = getEmojiForPooja(item.name);
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => navigation.navigate("PoojaDetails", { pooja: item })}
-        activeOpacity={0.8}
-      >
-        <View style={styles.cardLeft}>
-          <Text style={styles.emojiIcon}>{emoji}</Text>
-          <View style={styles.textContainer}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.duration}>
-              ⏱️ {item.duration_minutes} {currentLang === "hi" ? "मिनट" : "mins"}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.cardRight}>
-          <Text style={styles.price}>₹{item.base_price}</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const activeBookings = data.bookings.filter((booking) => ["confirmed", "pending"].includes(booking.status));
+  const upcoming = activeBookings.sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date))[0] || null;
+  const openPooja = (pooja) => navigation.navigate("PoojaDetails", { pooja });
+  const search = (query = "") => navigation.navigate("ExploreTab", { searchQuery: query });
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.containerInner}>
-        <View style={styles.topInfo}>
-          <Text style={styles.title}>{t("home.title")}</Text>
-          <Text style={styles.subtitle}>{t("home.subtitle")}</Text>
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#d97706" />
-          </View>
-        ) : (
-          <FlatList
-            data={poojas}
-            keyExtractor={(item) => item.id}
-            renderItem={renderPoojaCard}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </View>
-    </SafeAreaView>
-  );
+  return <ScrollView style={s.screen} contentContainerStyle={[s.content, { paddingTop: insets.top + 8 }]} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />}><HomeHeader name={data.profile?.name?.split(" ")[0] || "User"} location={data.profile?.address?.split(",")[0] || "Location not set"} notificationCount={activeBookings.length} onSearch={search} onLanguage={() => i18n.changeLanguage(language === "hi" ? "en" : "hi")} onBookings={() => navigation.navigate("BookingsTab")} /><HeroBanner onPress={() => data.poojas[0] && openPooja(data.poojas[0])} /><UpcomingCeremony booking={upcoming} onPress={() => navigation.navigate("BookingsTab")} /><PopularPoojas poojas={data.poojas} onSelect={openPooja} onViewAll={() => search()} /><NearbyPandits pandits={data.pandits} onView={(pandit) => navigation.navigate("PanditDetails", { pandit })} onBook={(pandit) => search(pandit.specializations?.[0] || "")} onViewAll={() => search()} /><TrustStrip /></ScrollView>;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f7efe5",
-  },
-  containerInner: {
-    flex: 1,
-    paddingTop: 16,
-  },
-  topInfo: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#6a1b1a",
-    lineHeight: 30,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "#5f4b3a",
-    lineHeight: 20,
-    marginTop: 6,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e3d5c5",
-    shadowColor: "#6a1b1a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    minHeight: 80,
-  },
-  cardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 12,
-  },
-  emojiIcon: {
-    fontSize: 32,
-  },
-  textContainer: {
-    flex: 1,
-    gap: 4,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#6a1b1a",
-  },
-  duration: {
-    fontSize: 14,
-    color: "#a08f80",
-    fontWeight: "600",
-  },
-  cardRight: {
-    alignItems: "flex-end",
-    marginLeft: 12,
-  },
-  price: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#d97706",
-  },
-});
+const s = StyleSheet.create({ screen: { flex: 1, backgroundColor: colors.bg }, content: { paddingHorizontal: 16, paddingBottom: 22 } });

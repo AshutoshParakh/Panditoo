@@ -3,6 +3,9 @@
     "name": "Pandit Booking User",
     "slug": "pandit-booking-user",
     "version": "1.0.0",
-    "orientation": "portrait"
+    "orientation": "portrait",
+    "android": {
+      "package": "com.anonymous.panditbookinguser"
+    }
   }
 }
