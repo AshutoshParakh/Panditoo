@@ -98,7 +98,7 @@ const createPaymentOrder = async (req, res, next) => {
 
     const order = await createRazorpayOrder({
       amount: booking.prepaid_amount,
-      receipt: `booking_${booking.id}_${Date.now()}`,
+      receipt: `rcpt_${booking.id.slice(0, 8)}_${Date.now()}`,
       notes: {
         booking_id: booking.id,
         user_id: booking.user_id,

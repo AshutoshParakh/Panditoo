@@ -1,4 +1,3 @@
-import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,6 +6,7 @@ import {
   ActivityIndicator,
   Animated,
   TouchableOpacity,
+  BackHandler,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
@@ -24,7 +24,22 @@ export default function WaitingForPanditScreen({ route, navigation }) {
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const goToHome = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Main" }],
+    });
+  };
+
   useEffect(() => {
+    // Override back button behavior to go straight to Main screen
+    const onBackPress = () => {
+      goToHome();
+      return true;
+    };
+
+    const backSubscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+
     // Pulse animation
     Animated.loop(
       Animated.sequence([
@@ -50,6 +65,7 @@ export default function WaitingForPanditScreen({ route, navigation }) {
     });
 
     return () => {
+      backSubscription.remove();
       if (intervalId) clearInterval(intervalId);
     };
   }, []);
@@ -116,6 +132,12 @@ export default function WaitingForPanditScreen({ route, navigation }) {
               : `✓ ${notifiedCount} pandits notified`}
           </Text>
         </View>
+
+        <TouchableOpacity style={styles.homeBtn} onPress={goToHome} activeOpacity={0.8}>
+          <Text style={styles.homeBtnText}>
+            {currentLang === "hi" ? "मुख्य पृष्ठ पर जाएं" : "Go to Home"}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -209,9 +231,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  demoBtnText: {
-    color: "#6a1b1a",
-    fontSize: 14,
+  homeBtn: {
+    height: 50,
+    width: "100%",
+    backgroundColor: "#6a1b1a",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 10,
+    shadowColor: "#6a1b1a",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  homeBtnText: {
+    color: "#ffffff",
+    fontSize: 16,
     fontWeight: "700",
   },
 });

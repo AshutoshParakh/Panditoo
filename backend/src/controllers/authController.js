@@ -8,7 +8,16 @@ const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const OTP_RATE_LIMIT_MAX = Number(process.env.OTP_RATE_LIMIT_MAX || 3);
 const OTP_RATE_LIMIT_WINDOW_MINUTES = Number(process.env.OTP_RATE_LIMIT_WINDOW_MINUTES || 10);
 
-const normalizePhone = (phone) => String(phone || "").replace(/\D/g, "");
+const normalizePhone = (phone) => {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return digits.slice(2);
+  }
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return digits.slice(1);
+  }
+  return digits;
+};
 const generateOTP = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const sendOtpForActor = async (phone, actorType) => {
@@ -29,7 +38,10 @@ const sendOtpForActor = async (phone, actorType) => {
     [normalizedPhone, actorType, OTP_RATE_LIMIT_WINDOW_MINUTES]
   );
 
-  if (rateLimitResult.rows[0].request_count >= OTP_RATE_LIMIT_MAX) {
+  const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
+  const effectiveMax = isDevMode ? 50 : OTP_RATE_LIMIT_MAX;
+
+  if (rateLimitResult.rows[0].request_count >= effectiveMax) {
     return {
       status: 429,
       body: {
@@ -51,12 +63,17 @@ const sendOtpForActor = async (phone, actorType) => {
 
   await sendOTP(normalizedPhone, otp);
 
+  console.log("\n========================================================");
+  console.log(`🔑 [OTP VERIFICATION] Phone: ${normalizedPhone} | OTP: ${otp} | Actor: ${actorType}`);
+  console.log("========================================================\n");
+
   return {
     status: 200,
     body: {
       success: true,
       message: "OTP sent successfully",
       expiresInMinutes: OTP_EXPIRY_MINUTES,
+      ...(isDevMode ? { otp, debugOtp: otp } : {}),
     },
   };
 };
@@ -69,7 +86,7 @@ const verifyOtpForActor = async (phone, otp, actorType) => {
     return { status: 400, body: { success: false, message: "Phone and 6-digit OTP are required" } };
   }
 
-  const isDevMode = process.env.NODE_ENV === "development";
+  const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
   const isMasterOtp = isDevMode && (normalizedOtp === "123456" || normalizedOtp === "111111");
 
   let otpId = null;

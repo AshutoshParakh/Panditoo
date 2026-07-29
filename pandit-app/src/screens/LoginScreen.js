@@ -5,12 +5,12 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 
@@ -82,34 +82,13 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      // In test mode without backend running, we can mock a new or existing user
-      if (testMode) {
-        // Simple mock behavior: if number ends in '00', it's a new user, otherwise it's existing.
-        // Or if it's 10 digits and correct, navigate.
-        setTimeout(() => {
-          setLoading(false);
-          const isNew = phone.endsWith("0") || phone.endsWith("00");
-          if (isNew) {
-            navigation.navigate("ProfileSetup", { phone });
-          } else {
-            // For testing, mock a registered pandit login
-            // We direct them to Main which checks if pandit profile details exist
-            navigation.navigate("ProfileSetup", { phone });
-          }
-        }, 1000);
-        return;
-      }
-
       const result = await login(phone, otp);
       setLoading(false);
-      if (result.isNewUser) {
-        navigation.navigate("ProfileSetup", { phone: result.phone });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Main" }],
-        });
+      if (result && result.isNewUser) {
+        navigation.navigate("ProfileSetup", { phone: result.phone || phone });
       }
+      // If result.isNewUser is false, AuthContext updates token & pandit state,
+      // automatically transitioning AppNavigator to the Main Dashboard screen.
     } catch (err) {
       setError(err.message || "Invalid OTP. Please try again.");
       setLoading(false);
