@@ -12,7 +12,6 @@ import OnboardingScreen from "./src/screens/OnboardingScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import ExploreScreen from "./src/screens/ExploreScreen";
-import ExploreScreen from "./src/screens/ExploreScreen";
 import BookingsScreen from "./src/screens/BookingsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import PoojaDetailsScreen from "./src/screens/PoojaDetailsScreen";

@@ -34,11 +34,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
   const [token, setToken] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [paymentError, setPaymentError] = useState("");
-<<<<<<< HEAD
-  const [draftBooking, setDraftBooking] = useState(null);
-=======
   const [draftBooking, setDraftBooking] = useState(existingBooking || null);
->>>>>>> 56e6936cec1fbec5221ac0633afad7ffd253270f
 
   // Get total price and calculate prepayment
   const totalPrice = Number(pooja?.base_price || 0);
@@ -148,29 +144,39 @@ export default function ConfirmBookingScreen({ route, navigation }) {
             theme: { color: "#6a1b1a" },
           };
 
-          RazorpayCheckout.open(options)
-            .then(async (data) => {
-              await verifyPayment(
-                currentBooking.id,
-                data.razorpay_order_id || razorpay_order.id,
-                data.razorpay_payment_id,
-                data.razorpay_signature
-              );
-            })
-            .catch(async (err) => {
-              console.warn("Razorpay Checkout Error, attempting dev fallback:", err);
-              try {
+          if (RazorpayCheckout && typeof RazorpayCheckout.open === "function") {
+            RazorpayCheckout.open(options)
+              .then(async (data) => {
                 await verifyPayment(
                   currentBooking.id,
-                  razorpay_order.id,
-                  `pay_test_${Date.now()}`,
-                  "test_signature"
+                  data.razorpay_order_id || razorpay_order.id,
+                  data.razorpay_payment_id,
+                  data.razorpay_signature
                 );
-              } catch (fallbackErr) {
-                setPaymentError(fallbackErr.message || "Payment failed");
-                setLoading(false);
-              }
-            });
+              })
+              .catch(async (err) => {
+                console.log("[DEV MODE] Razorpay native checkout skipped:", err?.message || err);
+                try {
+                  await verifyPayment(
+                    currentBooking.id,
+                    razorpay_order.id,
+                    `pay_test_${Date.now()}`,
+                    "stub_signature"
+                  );
+                } catch (fallbackErr) {
+                  setPaymentError(fallbackErr.message || "Payment failed");
+                  setLoading(false);
+                }
+              });
+          } else {
+            // Expo Go / Dev mode fallback (Native module not linked in Expo Go)
+            await verifyPayment(
+              currentBooking.id,
+              razorpay_order.id,
+              `pay_test_${Date.now()}`,
+              "stub_signature"
+            );
+          }
         } catch (checkoutErr) {
           console.warn("Razorpay native checkout unavailable in Expo Go, using dev fallback:", checkoutErr.message);
           try {
@@ -231,8 +237,6 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     }
   };
 
-<<<<<<< HEAD
-=======
   const handlePaymentFailure = () => {
     setPaymentError(
       currentLang === "hi"
@@ -241,8 +245,6 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     );
     setLoading(false);
   };
-
->>>>>>> 56e6936cec1fbec5221ac0633afad7ffd253270f
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

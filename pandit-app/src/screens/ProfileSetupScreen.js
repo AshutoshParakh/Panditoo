@@ -5,11 +5,11 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Slider from "@react-native-community/slider"; // Check if installed or fallback
 import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
