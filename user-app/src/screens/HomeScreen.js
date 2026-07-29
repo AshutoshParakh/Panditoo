@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import * as Location from "expo-location";
 import HomeHeader from "../components/home/HomeHeader";
 import HeroBanner from "../components/home/HeroBanner";
 import UpcomingCeremony from "../components/home/UpcomingCeremony";
@@ -24,7 +25,17 @@ export default function HomeScreen({ navigation }) {
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
-    try { setData(await fetchHomeData(language)); } finally { setRefreshing(false); }
+    try {
+      let coordinates = null;
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status === "granted") {
+          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          coordinates = position.coords;
+        }
+      } catch (_) {}
+      setData(await fetchHomeData(language, coordinates));
+    } finally { setRefreshing(false); }
   }, [language]);
 
   useEffect(() => { if (focused) load(); }, [focused, load]);

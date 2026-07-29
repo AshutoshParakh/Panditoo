@@ -22,8 +22,9 @@ export const getCachedHomeData = (lang = "en") => {
   return value ? { ...value, profile: null, bookings: [] } : null;
 };
 
-export async function fetchHomeData(lang = "en") {
-  if (pending.has(lang)) return pending.get(lang);
+export async function fetchHomeData(lang = "en", coordinates = null) {
+  const requestKey = `${lang}:${coordinates?.latitude ?? "none"}:${coordinates?.longitude ?? "none"}`;
+  if (pending.has(requestKey)) return pending.get(requestKey);
 
   const request = (async () => {
     const token = await AsyncStorage.getItem("user-app-token");
@@ -32,7 +33,9 @@ export async function fetchHomeData(lang = "en") {
     const previous = cache.get(lang) || {};
     const [poojas, pandits, profile, bookings] = await Promise.all([
       get(`/pooja-types?lang=${lang}`).catch(() => previous.poojas || []),
-      get("/pandits/nearby?lat=12.9716&lng=77.5946&radius=50").catch(() => previous.pandits || []),
+      coordinates
+        ? get(`/pandits/nearby?lat=${encodeURIComponent(coordinates.latitude)}&lng=${encodeURIComponent(coordinates.longitude)}&radius=50`).catch(() => previous.pandits || [])
+        : previous.pandits || [],
       token ? get("/auth/me", headers).catch(() => null) : null,
       token && userId
         ? get(`/bookings/user/${userId}`, headers).catch(() => [])
@@ -43,10 +46,10 @@ export async function fetchHomeData(lang = "en") {
     return result;
   })();
 
-  pending.set(lang, request);
+  pending.set(requestKey, request);
   try {
     return await request;
   } finally {
-    pending.delete(lang);
+    pending.delete(requestKey);
   }
 }

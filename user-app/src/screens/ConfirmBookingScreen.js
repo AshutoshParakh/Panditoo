@@ -27,13 +27,14 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     longitude,
     selectedPanditIds,
     selectedPandits,
+    existingBooking,
   } = route.params || {};
 
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [paymentError, setPaymentError] = useState("");
-  const [draftBooking, setDraftBooking] = useState(null);
+  const [draftBooking, setDraftBooking] = useState(existingBooking || null);
 
   // Get total price and calculate prepayment
   const totalPrice = Number(pooja?.base_price || 0);
@@ -51,14 +52,15 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     let currentBooking = draftBooking;
 
     try {
+      const authToken = token || await AsyncStorage.getItem("user-app-token");
+      if (!authToken) throw new Error("Please log in before confirming a booking.");
+      if (!token) setToken(authToken);
       // 1. Create Booking Draft if not already created
       if (!currentBooking) {
         const headers = {
           "Content-Type": "application/json",
         };
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
+        headers["Authorization"] = `Bearer ${authToken}`;
 
         const bookingRes = await fetch(`${API_URL}/bookings/create`, {
           method: "POST",
@@ -87,9 +89,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
       const orderHeaders = {
         "Content-Type": "application/json",
       };
-      if (token) {
-        orderHeaders["Authorization"] = `Bearer ${token}`;
-      }
+      orderHeaders["Authorization"] = `Bearer ${authToken}`;
 
       const orderRes = await fetch(`${API_URL}/payments/create-order`, {
         method: "POST",
@@ -120,7 +120,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
           try {
             const profileRes = await fetch(`${API_URL}/auth/me`, {
               headers: {
-                "Authorization": `Bearer ${token}`
+                "Authorization": `Bearer ${authToken}`
               }
             });
             const profileJson = await profileRes.json();

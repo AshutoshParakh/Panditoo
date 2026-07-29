@@ -15,7 +15,7 @@
   "login": {
     "title": "ओटीपी सत्यापन",
     "phoneLabel": "फ़ोन नंबर दर्ज करें",
-    "phonePlaceholder": "उदा., 9990001001",
+    "phonePlaceholder": "अपना 10 अंकों का फ़ोन नंबर दर्ज करें",
     "sendOtp": "ओटीपी भेजें",
     "otpLabel": "6-अंकीय ओटीपी दर्ज करें",
     "otpPlaceholder": "उदा., 123456",

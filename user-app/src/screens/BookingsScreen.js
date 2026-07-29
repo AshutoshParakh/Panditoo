@@ -32,7 +32,7 @@ export default function BookingsScreen({ navigation }) {
     if (booking.status === "completed") navigation.navigate("RateExperience", { booking });
     else if (booking.status === "confirmed") navigation.navigate("BookingConfirmed", { booking });
     else if (booking.status === "pending" && booking.prepaid_status === "paid") navigation.navigate("WaitingForPandit", { bookingId: booking.id, poojaName: currentLang === "hi" ? booking.name_hi : booking.name_en });
-    else if (booking.status === "pending") navigation.navigate("ConfirmBooking", { pooja: { id: booking.pooja_type_id, name: currentLang === "hi" ? booking.name_hi : booking.name_en, base_price: booking.total_price }, bookingDate: booking.booking_date, bookingTime: booking.booking_time, address: booking.address });
+    else if (booking.status === "pending") navigation.navigate("ConfirmBooking", { existingBooking: booking, pooja: { id: booking.pooja_type_id, name: currentLang === "hi" ? booking.name_hi : booking.name_en, base_price: booking.total_price }, bookingDate: booking.booking_date, bookingTime: booking.booking_time, address: booking.address });
   };
 
   const statusColor = (status) => status === "confirmed" ? "#047857" : status === "completed" ? "#1d4ed8" : status === "cancelled" ? "#b91c1c" : "#b45309";

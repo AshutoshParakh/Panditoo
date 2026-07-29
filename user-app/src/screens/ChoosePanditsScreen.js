@@ -87,13 +87,11 @@ export default function ChoosePanditsScreen({ route, navigation }) {
             </View>
             <View style={styles.infoCol}>
               <Text style={styles.panditName}>{item.name}</Text>
-              <View style={styles.ratingRow}>
-                <Text style={styles.ratingText}>⭐ {item.rating || "4.5"}</Text>
-                <Text style={styles.dot}>•</Text>
-                <Text style={styles.expText}>
-                  {t("choosePandits.experience", { yrs: item.experience_years || 5 })}
-                </Text>
-              </View>
+              {(item.rating != null || item.experience_years != null) && <View style={styles.ratingRow}>
+                {item.rating != null ? <Text style={styles.ratingText}>⭐ {item.rating}</Text> : null}
+                {item.rating != null && item.experience_years != null ? <Text style={styles.dot}>•</Text> : null}
+                {item.experience_years != null ? <Text style={styles.expText}>{t("choosePandits.experience", { yrs: item.experience_years })}</Text> : null}
+              </View>}
             </View>
           </View>
 
