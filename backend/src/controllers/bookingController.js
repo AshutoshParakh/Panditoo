@@ -249,9 +249,16 @@ const listBookingsForUser = async (req, res, next) => {
             b.created_at,
             b.updated_at,
             pt.name_en,
-            pt.name_hi
+            pt.name_hi,
+            CASE WHEN p.id IS NOT NULL THEN json_build_object(
+              'id', p.id,
+              'name', p.name,
+              'phone', p.phone,
+              'rating', p.rating
+            ) ELSE NULL END AS confirmed_pandit
           FROM bookings b
           INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
+          LEFT JOIN pandits p ON p.id = b.confirmed_pandit_id
           WHERE b.user_id = $1
           ORDER BY b.created_at DESC
           LIMIT $2 OFFSET $3
@@ -274,6 +281,41 @@ const listBookingsForUser = async (req, res, next) => {
     });
   } catch (error) {
     return next(error);
+  }
+};
+
+const cancelBookingByUser = async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      `UPDATE bookings
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE id = $1
+         AND user_id = $2
+         AND status IN ('pending', 'confirmed')
+       RETURNING *`,
+      [req.params.bookingId, req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "This booking cannot be cancelled." });
+    }
+
+    await client.query(
+      `UPDATE booking_requests
+       SET status = 'lost', responded_at = COALESCE(responded_at, NOW())
+       WHERE booking_id = $1 AND status IN ('pending', 'won')`,
+      [req.params.bookingId]
+    );
+    await client.query("COMMIT");
+    return res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch (_) {}
+    return next(error);
+  } finally {
+    client.release();
   }
 };
 
@@ -623,6 +665,7 @@ module.exports = {
   createBooking,
   getBookingById,
   listBookingsForUser,
+  cancelBookingByUser,
   handlePanditBookingResponse,
   markBookingCompletedByPandit,
   listRequestsForPandit,
