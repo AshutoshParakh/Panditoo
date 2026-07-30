@@ -1,10 +1,26 @@
 const Joi = require("joi");
 
 const samagriItemSchema = Joi.object({
-  item_en: Joi.string().trim().min(1).max(255).required(),
-  item_hi: Joi.string().trim().min(1).max(255).required(),
-  brought_by: Joi.string().valid("pandit", "user").required(),
-});
+  item: Joi.string().trim().min(1).max(255).optional(),
+  item_en: Joi.string().trim().min(1).max(255).optional(),
+  item_hi: Joi.string().trim().min(1).max(255).optional().allow("", null),
+  brought_by: Joi.string().trim().lowercase().valid("pandit", "user").required(),
+})
+  .custom((value, helpers) => {
+    const item_en = value.item_en || value.item;
+    const item_hi = value.item_hi || value.item || item_en;
+
+    if (!item_en) {
+      return helpers.message('"item" or "item_en" is required');
+    }
+
+    return {
+      item_en,
+      item_hi,
+      brought_by: value.brought_by,
+    };
+  })
+  .unknown(true);
 
 const createPoojaTypeSchema = Joi.object({
   name_en: Joi.string().trim().min(2).max(255).required(),
@@ -32,3 +48,4 @@ module.exports = {
   createPoojaTypeSchema,
   updatePoojaTypeSchema,
 };
+

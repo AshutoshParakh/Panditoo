@@ -19,7 +19,9 @@ const SamagriCard = ({ title, note, items, hindi, accent }) => (
       <Text style={s.itemCount}>{items.length}</Text>
     </View>
     {items.length ? items.map((item, index) => {
-      const name = hindi ? item.item_name_hi || item.item_name_en : item.item_name_en || item.item_name_hi;
+      const name = hindi
+        ? item.item_hi || item.item_name_hi || item.item_en || item.item_name_en || item.item || ""
+        : item.item_en || item.item_name_en || item.item_hi || item.item_name_hi || item.item || "";
       return <View key={`${name}-${index}`} style={[s.materialRow, index === items.length - 1 && s.lastRow]}><View style={s.check}><Text style={s.checkText}>✓</Text></View><Text style={s.itemName}>{name}</Text>{item.quantity ? <Text style={s.quantity}>{item.quantity}</Text> : null}</View>;
     }) : <Text style={s.noItems}>{hindi ? "कोई विशेष सामग्री आवश्यक नहीं" : "No specific items required"}</Text>}
   </View>
@@ -37,8 +39,8 @@ export default function PoojaDetailsScreen({ route, navigation }) {
   const alternateName = hindi ? pooja.name_en : pooja.name_hi;
   const description = hindi ? pooja.description_hi || pooja.description : pooja.description_en || pooja.description;
   const items = Array.isArray(pooja.samagri_list) ? pooja.samagri_list : [];
-  const panditItems = items.filter((item) => item.provided_by === "pandit");
-  const userItems = items.filter((item) => item.provided_by !== "pandit");
+  const panditItems = items.filter((item) => (item.brought_by || item.provided_by) === "pandit");
+  const userItems = items.filter((item) => (item.brought_by || item.provided_by) !== "pandit");
 
   return (
     <View style={s.screen}>

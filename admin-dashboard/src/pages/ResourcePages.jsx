@@ -96,7 +96,10 @@ export function PoojaTypesPage() {
     form.setFieldsValue({
       ...record,
       samagri_list: Array.isArray(record.samagri_list) && record.samagri_list.length
-        ? record.samagri_list.map((item) => ({ item: item.item || item.name || "", brought_by: item.brought_by || "pandit" }))
+        ? record.samagri_list.map((item) => ({
+            item: item.item || item.item_en || item.item_name_en || item.name || "",
+            brought_by: item.brought_by || item.provided_by || "pandit",
+          }))
         : [{ item: "", brought_by: "pandit" }],
     });
     setOpen(true);
@@ -107,7 +110,14 @@ export function PoojaTypesPage() {
       setSaving(true);
       const payload = {
         ...values,
-        samagri_list: (values.samagri_list || []).filter((item) => item?.item).map((item) => ({ item: item.item, brought_by: item.brought_by })),
+        samagri_list: (values.samagri_list || [])
+          .filter((item) => item && item.item && item.item.trim())
+          .map((item) => ({
+            item: item.item.trim(),
+            item_en: item.item.trim(),
+            item_hi: item.item.trim(),
+            brought_by: item.brought_by || "pandit",
+          })),
       };
       if (editing) {
         await adminApiRequest(`/admin/pooja-types/${editing.id}`, { method: "PUT", token, body: payload });
