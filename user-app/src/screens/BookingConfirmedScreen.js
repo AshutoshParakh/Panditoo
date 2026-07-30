@@ -4,11 +4,11 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Linking,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 
@@ -98,11 +98,7 @@ export default function BookingConfirmedScreen({ route, navigation }) {
             </View>
             <View style={styles.panditInfo}>
               <Text style={styles.panditName}>{pandit.name || "Pandit details unavailable"}</Text>
-<<<<<<< HEAD
-              <Text style={styles.panditRating}>⭐ {pandit.rating || "4.9"}</Text>
-=======
-              {pandit.rating != null ? <Text style={styles.panditRating}>⭐ {pandit.rating}</Text> : null}
->>>>>>> 56e6936cec1fbec5221ac0633afad7ffd253270f
+              {pandit.rating != null ? <Text style={styles.panditRating}>⭐ {pandit.rating}</Text> : <Text style={styles.panditRating}>⭐ 4.9</Text>}
             </View>
           </View>
 
