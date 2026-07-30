@@ -33,6 +33,7 @@ function MainTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
+        headerShown: false,
         headerStyle: {
           backgroundColor: "#7c2d12", // Deep premium maroon for pooja themes
         },
@@ -70,7 +71,7 @@ function MainTabNavigator() {
           tabBarLabel: t("requests.title"),
           tabBarBadge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 24, color, opacity: focused ? 1 : 0.6 }}>🔔</Text>
+            <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>◎</Text>
           ),
         }}
       />
@@ -81,7 +82,7 @@ function MainTabNavigator() {
           title: t("bookings.title"),
           tabBarLabel: t("bookings.title"),
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 24, color, opacity: focused ? 1 : 0.6 }}>📅</Text>
+            <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>▣</Text>
           ),
         }}
       />
@@ -92,7 +93,7 @@ function MainTabNavigator() {
           title: t("earnings.title"),
           tabBarLabel: t("earnings.title"),
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 24, color, opacity: focused ? 1 : 0.6 }}>💰</Text>
+            <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>₹</Text>
           ),
         }}
       />
@@ -103,7 +104,7 @@ function MainTabNavigator() {
           title: t("profile.title"),
           tabBarLabel: t("profile.title"),
           tabBarIcon: ({ color, focused }) => (
-            <Text style={{ fontSize: 24, color, opacity: focused ? 1 : 0.6 }}>👤</Text>
+            <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>◇</Text>
           ),
         }}
       />

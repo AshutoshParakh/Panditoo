@@ -44,7 +44,10 @@ export const speakBookingNotification = async (customText) => {
 
   // 2. Wait 900ms for temple bell chime to echo, then speak with clear Hindi accent
   setTimeout(() => {
-    const textToSpeak = customText || "नमस्ते! Panditoo में, आपके लिए नई बुकिंग आई है।";
+    const notificationText = customText || "नमस्ते! Panditoo में, आपके लिए नई बुकिंग आई है।";
+    // Hindi TTS pronounces the Latin brand name inconsistently. The Devanagari
+    // phonetic form adds the intended pause: "Pandit-oo".
+    const textToSpeak = notificationText.replace(/Panditoo/gi, "पंडित ऊ");
     try {
       Speech.stop();
       Speech.speak(textToSpeak, {

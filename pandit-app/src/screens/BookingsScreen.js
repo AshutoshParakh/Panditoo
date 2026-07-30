@@ -1,471 +1,63 @@
-import React, { useState, useEffect } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  FlatList,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Linking,
-  SafeAreaView,
-} from "react-native";
-import { useTranslation } from "react-i18next";
+import React, { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, FlatList, Linking, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
+import { colors, money, shadow } from "../theme";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
 export default function BookingsScreen({ navigation }) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
+  const hindi = i18n.language === "hi";
   const { token, pandit } = useAuth();
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("upcoming");
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionId, setActionId] = useState(null);
+  const [error, setError] = useState("");
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (pandit) {
-        fetchBookings();
-      }
-    }, [pandit])
-  );
-
-  const fetchBookings = async () => {
-    setLoading(true);
+  const fetchBookings = useCallback(async (refresh = false) => {
+    refresh ? setRefreshing(true) : setLoading(true); setError("");
     try {
-      const res = await fetch(`${API_URL}/bookings/pandit/bookings`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        const sorted = (data.data || []).sort((a, b) => new Date(b.booking_date) - new Date(a.booking_date));
-        setBookings(sorted);
-      } else {
-        console.warn("Failed to fetch bookings:", data.message);
-      }
-    } catch (error) {
-      console.warn("Error fetching bookings:", error);
-      // Fallback mock bookings for demo purposes
-      const mockBookings = [
-        {
-          booking_id: "mock-b-1",
-          pooja_name_en: "Griha Pravesh Puja",
-          pooja_name_hi: "गृह प्रवेश पूजा",
-          user_name: "Amit Kumar",
-          user_phone: "9876543210",
-          booking_date: "2026-07-15T00:00:00.000Z",
-          booking_time: "09:30:00",
-          address: "Flat 402, Royal Residency, Dwarka Sec-10, Delhi",
-          booking_status: "confirmed",
-          pandit_payout_amount: "3500.00",
-        },
-        {
-          booking_id: "mock-b-2",
-          pooja_name_en: "Rudrabhishek Pooja",
-          pooja_name_hi: "रुद्राभिषेक पूजा",
-          user_name: "Suresh Gupta",
-          user_phone: "9988776655",
-          booking_date: "2026-07-12T00:00:00.000Z",
-          booking_time: "07:00:00",
-          address: "House 24, Gali 2, Raja Garden, Delhi",
-          booking_status: "completed",
-          pandit_payout_amount: "5100.00",
-        },
-      ];
-      setBookings(mockBookings.sort((a, b) => new Date(b.booking_date) - new Date(a.booking_date)));
-    } finally {
-      setLoading(false);
-    }
+      const response = await fetch(`${API_URL}/bookings/pandit/bookings`, { headers: { Authorization: `Bearer ${token}` } });
+      const json = await response.json();
+      if (!response.ok || !json.success) throw new Error(json.message || "Unable to load bookings.");
+      setBookings((json.data || []).sort((a, b) => new Date(b.booking_date) - new Date(a.booking_date)));
+    } catch (requestError) { setBookings([]); setError(requestError.message || "Unable to load bookings."); }
+    finally { setLoading(false); setRefreshing(false); }
+  }, [token]);
+
+  useFocusEffect(useCallback(() => { if (pandit) fetchBookings(); }, [fetchBookings, pandit]));
+  const visible = useMemo(() => bookings.filter((item) => tab === "completed" ? item.booking_status === "completed" : item.booking_status !== "completed"), [bookings, tab]);
+
+  const completeBooking = (booking) => Alert.alert(hindi ? "पूजा पूर्ण करें?" : "Mark ceremony complete?", hindi ? "केवल पूजा संपन्न होने के बाद पुष्टि करें।" : "Confirm only after the ceremony has been completed.", [{ text: hindi ? "रद्द करें" : "Cancel", style: "cancel" }, { text: hindi ? "पूर्ण हुई" : "Yes, completed", onPress: async () => {
+    setActionId(booking.booking_id);
+    try { const response = await fetch(`${API_URL}/bookings/${booking.booking_id}/complete`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }); const json = await response.json(); if (!response.ok || !json.success) throw new Error(json.message || "Unable to update booking."); setBookings((current) => current.map((item) => item.booking_id === booking.booking_id ? { ...item, booking_status: "completed" } : item)); }
+    catch (requestError) { Alert.alert(hindi ? "अपडेट नहीं हुआ" : "Update failed", requestError.message); } finally { setActionId(null); }
+  } }]);
+  const call = (phone) => phone ? Linking.openURL(`tel:${phone}`).catch(() => {}) : Alert.alert(hindi ? "नंबर उपलब्ध नहीं" : "Phone unavailable");
+  const directions = (item) => {
+    const query = item.latitude && item.longitude ? `${item.latitude},${item.longitude}` : item.address;
+    const url = Platform.select({ ios: `maps:0,0?q=${encodeURIComponent(query)}`, android: `geo:0,0?q=${encodeURIComponent(query)}` });
+    Linking.openURL(url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`).catch(() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`));
   };
 
-  const handleMarkCompleted = async (bookingId) => {
-    Alert.alert(
-      t("bookings.markCompleted"),
-      "Are you sure the puja ceremony is successfully completed?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, Completed",
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const res = await fetch(`${API_URL}/bookings/${bookingId}/complete`, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-              const data = await res.json();
-              if (res.ok && data.success) {
-                Alert.alert(t("common.success"), "Puja completed successfully!");
-                // Update local status
-                setBookings(
-                  bookings.map((b) =>
-                    b.booking_id === bookingId ? { ...b, booking_status: "completed" } : b
-                  )
-                );
-              } else {
-                // Mock completion fallback
-                setBookings(
-                  bookings.map((b) =>
-                    b.booking_id === bookingId ? { ...b, booking_status: "completed" } : b
-                  )
-                );
-                Alert.alert(t("common.success"), "Puja marked as completed (Test Mode)!");
-              }
-            } catch (err) {
-              setBookings(
-                bookings.map((b) =>
-                  b.booking_id === bookingId ? { ...b, booking_status: "completed" } : b
-                )
-              );
-              Alert.alert(t("common.success"), "Puja marked as completed (Test Mode)!");
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const renderBooking = ({ item }) => {
+    const completed = item.booking_status === "completed";
+    const name = hindi ? item.pooja_name_hi || item.pooja_name_en : item.pooja_name_en || item.pooja_name_hi;
+    const date = new Date(item.booking_date).toLocaleDateString(hindi ? "hi-IN" : "en-IN", { weekday: "short", day: "2-digit", month: "short" });
+    return <TouchableOpacity activeOpacity={0.78} style={s.card} onPress={() => navigation.navigate("BookingDetail", { bookingId: item.booking_id })}>
+      <View style={s.cardTop}><View style={s.omBox}><Text style={s.om}>ॐ</Text></View><View style={s.titleCopy}><Text numberOfLines={1} style={s.cardTitle}>{name}</Text><Text style={s.reference}>#{String(item.booking_id).slice(0, 8).toUpperCase()}</Text></View><View style={[s.status, completed ? s.statusDone : s.statusUpcoming]}><Text style={[s.statusText, completed ? s.doneText : s.upcomingText]}>{completed ? (hindi ? "पूर्ण" : "Completed") : (hindi ? "आगामी" : "Upcoming")}</Text></View></View>
+      <View style={s.schedule}><View><Text style={s.scheduleLabel}>{hindi ? "तारीख" : "DATE"}</Text><Text style={s.scheduleValue}>{date}</Text></View><View style={s.scheduleRule} /><View><Text style={s.scheduleLabel}>{hindi ? "समय" : "TIME"}</Text><Text style={s.scheduleValue}>{String(item.booking_time || "—").slice(0, 5)}</Text></View><View style={s.scheduleRule} /><View><Text style={s.scheduleLabel}>{hindi ? "आपकी आय" : "YOUR PAYOUT"}</Text><Text style={s.payout}>{money(item.pandit_payout_amount)}</Text></View></View>
+      <View style={s.customer}><View style={s.avatar}><Text style={s.avatarText}>{String(item.user_name || "C").charAt(0)}</Text></View><View style={s.customerCopy}><Text style={s.customerLabel}>{hindi ? "भक्त" : "CUSTOMER"}</Text><Text style={s.customerName}>{item.user_name || (hindi ? "ग्राहक" : "Customer")}</Text><Text numberOfLines={1} style={s.address}>{item.address}</Text></View><Text style={s.chevron}>›</Text></View>
+      {!completed ? <View style={s.actions}><TouchableOpacity style={s.outlineButton} onPress={() => call(item.user_phone)}><Text style={s.outlineText}>{hindi ? "कॉल" : "Call"}</Text></TouchableOpacity><TouchableOpacity style={s.outlineButton} onPress={() => directions(item)}><Text style={s.outlineText}>{hindi ? "दिशा" : "Directions"}</Text></TouchableOpacity><TouchableOpacity style={s.completeButton} disabled={actionId === item.booking_id} onPress={() => completeBooking(item)}>{actionId === item.booking_id ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={s.completeText}>{hindi ? "पूजा पूर्ण" : "Mark complete"}</Text>}</TouchableOpacity></View> : null}
+    </TouchableOpacity>;
   };
 
-  const handleCall = (phone) => {
-    Linking.openURL(`tel:${phone}`).catch(() => {
-      Alert.alert("Error", "Could not open dialer");
-    });
-  };
-
-  const handleDirections = (address) => {
-    const url = Platform.select({
-      ios: `maps:0,0?q=${encodeURIComponent(address)}`,
-      android: `geo:0,0?q=${encodeURIComponent(address)}`,
-    }) || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
-    
-    Linking.openURL(url).catch(() => {
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
-    });
-  };
-
-  const isHindi = i18n.language === "hi";
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <FlatList
-        data={bookings}
-        keyExtractor={(item) => item.booking_id}
-        refreshing={refreshing}
-        onRefresh={async () => {
-          setRefreshing(true);
-          await fetchBookings();
-          setRefreshing(false);
-        }}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          !loading && (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>📅</Text>
-              <Text style={styles.emptyText}>{t("bookings.noBookings")}</Text>
-            </View>
-          )
-        }
-        renderItem={({ item }) => {
-          const isConfirmed = item.booking_status === "confirmed";
-          const isCompleted = item.booking_status === "completed";
-
-          return (
-            <TouchableOpacity
-              style={[styles.bookingCard, isCompleted && styles.completedCard]}
-              onPress={() => navigation.navigate("BookingDetail", { bookingId: item.booking_id })}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={styles.poojaName}>
-                  {isHindi ? item.pooja_name_hi : item.pooja_name_en}
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isCompleted ? styles.statusCompleted : styles.statusConfirmed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      isCompleted ? styles.statusTextCompleted : styles.statusTextConfirmed,
-                    ]}
-                  >
-                    {isCompleted ? t("bookings.statusCompleted") : (t("bookings.statusConfirmed") || "Upcoming")}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              <View style={styles.cardDetails}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailEmoji}>👤</Text>
-                  <View>
-                    <Text style={styles.detailLabel}>{t("requests.customer")}</Text>
-                    <Text style={styles.detailValueText}>{item.user_name}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailEmoji}>📅</Text>
-                  <View>
-                    <Text style={styles.detailLabel}>{t("requests.dateTime")}</Text>
-                    <Text style={styles.detailValueText}>
-                      {new Date(item.booking_date).toLocaleDateString(isHindi ? "hi-IN" : "en-US", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      })}{" "}
-                      - {item.booking_time.slice(0, 5)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailEmoji}>📍</Text>
-                  <View style={styles.addressContainer}>
-                    <Text style={styles.detailLabel}>{t("requests.address")}</Text>
-                    <Text style={styles.addressText} numberOfLines={2}>
-                      {item.address}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailEmoji}>💰</Text>
-                  <View>
-                    <Text style={styles.detailLabel}>{t("requests.payout")}</Text>
-                    <Text style={styles.payoutText}>₹{parseInt(item.pandit_payout_amount)}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {isConfirmed && (
-                <View style={styles.actionColumn}>
-                  <View style={styles.contactRow}>
-                    <TouchableOpacity
-                      style={styles.callBtn}
-                      onPress={() => handleCall(item.user_phone)}
-                    >
-                      <Text style={styles.callBtnText}>📞 {t("bookings.callDevotee")}</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.directionsBtn}
-                      onPress={() => handleDirections(item.address)}
-                    >
-                      <Text style={styles.directionsBtnText}>📍 {t("bookings.directions")}</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.completeBtn}
-                    onPress={() => handleMarkCompleted(item.booking_id)}
-                  >
-                    <Text style={styles.completeBtnText}>✓ {t("bookings.markCompleted")}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        }}
-      />
-      {loading && !refreshing && (
-        <View style={styles.loaderOverlay}>
-          <ActivityIndicator size="large" color="#ea580c" />
-        </View>
-      )}
-    </SafeAreaView>
-  );
+  return <SafeAreaView style={s.screen}><FlatList data={visible} keyExtractor={(item) => String(item.booking_id)} renderItem={renderBooking} showsVerticalScrollIndicator={false} contentContainerStyle={s.list} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchBookings(true)} tintColor={colors.primary} />} ListHeaderComponent={<View><View style={s.header}><Text style={s.eyebrow}>{hindi ? "कार्य सूची" : "WORK SCHEDULE"}</Text><Text style={s.heading}>{hindi ? "मेरी बुकिंग" : "My bookings"}</Text><Text style={s.subtitle}>{hindi ? "अपनी आगामी और पूर्ण पूजाएं प्रबंधित करें।" : "Manage your upcoming and completed ceremonies."}</Text></View><View style={s.tabs}>{["upcoming", "completed"].map((item) => <TouchableOpacity key={item} style={[s.tab, tab === item && s.activeTab]} onPress={() => setTab(item)}><Text style={[s.tabText, tab === item && s.activeTabText]}>{item === "upcoming" ? (hindi ? "आगामी" : "Upcoming") : (hindi ? "पूर्ण" : "Completed")}</Text><Text style={[s.tabCount, tab === item && s.activeTabText]}>{bookings.filter((booking) => item === "completed" ? booking.booking_status === "completed" : booking.booking_status !== "completed").length}</Text></TouchableOpacity>)}</View></View>} ListEmptyComponent={loading ? <View style={s.state}><ActivityIndicator color={colors.primary} /></View> : <View style={s.state}><Text style={s.emptyTitle}>{hindi ? "कोई बुकिंग नहीं" : "No bookings here"}</Text><Text style={s.stateText}>{error || (hindi ? "नई बुकिंग यहां दिखाई देगी।" : "New bookings will appear here.")}</Text>{error ? <TouchableOpacity onPress={() => fetchBookings()}><Text style={s.retry}>Try again</Text></TouchableOpacity> : null}</View>} /></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff7ed",
-  },
-  listContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 80,
-  },
-  emptyIcon: {
-    fontSize: 60,
-    marginBottom: 16,
-    opacity: 0.5,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#78350f",
-    textAlign: "center",
-    opacity: 0.7,
-  },
-  bookingCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#7c2d12",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1.5,
-    borderColor: "#ffedd5",
-  },
-  completedCard: {
-    opacity: 0.85,
-    backgroundColor: "#fafaf9",
-    borderColor: "#e7e5e4",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  poojaName: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#7c2d12",
-    flex: 1,
-    paddingRight: 10,
-  },
-  statusBadge: {
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
-  statusConfirmed: {
-    backgroundColor: "#eff6ff",
-  },
-  statusCompleted: {
-    backgroundColor: "#d1fae5",
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  statusTextConfirmed: {
-    color: "#1d4ed8",
-  },
-  statusTextCompleted: {
-    color: "#065f46",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#f5ebe0",
-    marginVertical: 14,
-  },
-  cardDetails: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  detailEmoji: {
-    fontSize: 16,
-    marginRight: 10,
-    marginTop: 2,
-  },
-  detailLabel: {
-    fontSize: 11,
-    color: "#78350f",
-    opacity: 0.6,
-    fontWeight: "600",
-  },
-  detailValueText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#431407",
-    marginTop: 1,
-  },
-  addressContainer: {
-    flex: 1,
-  },
-  addressText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#431407",
-    lineHeight: 18,
-    marginTop: 1,
-  },
-  payoutText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#d97706",
-    marginTop: 1,
-  },
-  actionColumn: {
-    gap: 12,
-    marginTop: 6,
-  },
-  contactRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  callBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff7ed",
-    borderWidth: 1.5,
-    borderColor: "#fed7aa",
-  },
-  callBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#ea580c",
-  },
-  directionsBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#ffedd5",
-    borderWidth: 1.5,
-    borderColor: "#fdba74",
-  },
-  directionsBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#d97706",
-  },
-  completeBtn: {
-    height: 50,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#10b981",
-    shadowColor: "#10b981",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  completeBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  loaderOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
+const s = StyleSheet.create({ screen: { flex: 1, backgroundColor: colors.bg }, list: { paddingHorizontal: 17, paddingBottom: 28, flexGrow: 1 }, header: { paddingTop: 7, paddingBottom: 15 }, eyebrow: { color: colors.primary, fontSize: 8, fontWeight: "800", letterSpacing: 1.4 }, heading: { color: colors.ink, fontSize: 27, fontWeight: "800", marginTop: 5 }, subtitle: { color: colors.muted, fontSize: 10, marginTop: 4 }, tabs: { height: 43, borderRadius: 12, backgroundColor: "#EDE7E1", padding: 4, flexDirection: "row", marginBottom: 5 }, tab: { flex: 1, borderRadius: 9, flexDirection: "row", alignItems: "center", justifyContent: "center" }, activeTab: { backgroundColor: colors.surface, ...shadow }, tabText: { color: colors.muted, fontSize: 10, fontWeight: "800" }, activeTabText: { color: colors.primary }, tabCount: { color: colors.muted, fontSize: 8, fontWeight: "800", marginLeft: 6 }, card: { backgroundColor: colors.surface, borderRadius: 17, borderWidth: 1, borderColor: colors.border, padding: 14, marginTop: 11, ...shadow }, cardTop: { flexDirection: "row", alignItems: "center" }, omBox: { width: 43, height: 43, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }, om: { color: colors.primary, fontSize: 20 }, titleCopy: { flex: 1, marginLeft: 10 }, cardTitle: { color: colors.ink, fontSize: 13, fontWeight: "800" }, reference: { color: colors.muted, fontSize: 7, marginTop: 3 }, status: { borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5 }, statusDone: { backgroundColor: colors.greenSoft }, statusUpcoming: { backgroundColor: colors.blueSoft }, statusText: { fontSize: 7, fontWeight: "800" }, doneText: { color: colors.green }, upcomingText: { color: colors.blue }, schedule: { minHeight: 57, borderRadius: 11, backgroundColor: "#F5F1ED", flexDirection: "row", alignItems: "center", justifyContent: "space-around", marginTop: 13, paddingHorizontal: 6 }, scheduleLabel: { color: colors.muted, fontSize: 6, fontWeight: "800", letterSpacing: 0.6 }, scheduleValue: { color: "#504842", fontSize: 9, fontWeight: "800", marginTop: 4 }, payout: { color: colors.green, fontSize: 11, fontWeight: "800", marginTop: 3 }, scheduleRule: { width: 1, height: 29, backgroundColor: "#DDD4CC" }, customer: { flexDirection: "row", alignItems: "center", marginTop: 13 }, avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#EEE6DF", alignItems: "center", justifyContent: "center" }, avatarText: { color: colors.primary, fontSize: 11, fontWeight: "800" }, customerCopy: { flex: 1, marginLeft: 9 }, customerLabel: { color: colors.muted, fontSize: 6, fontWeight: "800" }, customerName: { color: colors.ink, fontSize: 10, fontWeight: "800", marginTop: 2 }, address: { color: colors.muted, fontSize: 7, marginTop: 2 }, chevron: { color: "#9D9188", fontSize: 20 }, actions: { flexDirection: "row", gap: 7, marginTop: 13, borderTopWidth: 1, borderTopColor: "#EFE8E2", paddingTop: 12 }, outlineButton: { height: 37, minWidth: 60, borderRadius: 10, borderWidth: 1, borderColor: "#DCCFC5", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 }, outlineText: { color: "#625851", fontSize: 8, fontWeight: "800" }, completeButton: { flex: 1, height: 37, borderRadius: 10, backgroundColor: colors.green, alignItems: "center", justifyContent: "center" }, completeText: { color: "#FFFFFF", fontSize: 8, fontWeight: "800" }, state: { alignItems: "center", paddingTop: 100 }, emptyTitle: { color: colors.ink, fontSize: 14, fontWeight: "800" }, stateText: { color: colors.muted, fontSize: 9, textAlign: "center", marginTop: 7 }, retry: { color: colors.primary, fontSize: 10, fontWeight: "800", marginTop: 13 } });
