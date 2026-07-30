@@ -118,9 +118,8 @@ export default function BookingWonScreen({ route, navigation }) {
             <Text style={styles.value}>{booking?.user_name || "N/A"}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>📞 {isHindi ? "मोबाइल नंबर" : "Phone Number"}</Text>
-            <Text style={styles.value}>{booking?.user_phone || "N/A"}</Text>
+          <View style={styles.privacyBox}>
+            <Text style={styles.privacyText}>Customer contact details stay private and coordination is managed through Panditoo.</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -161,6 +160,8 @@ export default function BookingWonScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  privacyBox: { backgroundColor: "#F5F1ED", borderRadius: 12, padding: 12, marginBottom: 13 },
+  privacyText: { color: "#756A62", fontSize: 13, lineHeight: 19, fontWeight: "600" },
   container: {
     flex: 1,
     backgroundColor: "#fff7ed",

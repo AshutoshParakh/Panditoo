@@ -219,7 +219,7 @@ const getBookingById = async (req, res, next) => {
     if (booking.confirmed_pandit_id) {
       const panditResult = await query(
         `
-          SELECT name, phone, rating
+          SELECT name, rating
           FROM pandits
           WHERE id = $1
           LIMIT 1
@@ -270,7 +270,6 @@ const listBookingsForUser = async (req, res, next) => {
             CASE WHEN p.id IS NOT NULL THEN json_build_object(
               'id', p.id,
               'name', p.name,
-              'phone', p.phone,
               'rating', p.rating
             ) ELSE NULL END AS confirmed_pandit
           FROM bookings b
@@ -554,8 +553,7 @@ const listRequestsForPandit = async (req, res, next) => {
            b.pandit_payout_amount,
            pt.name_en AS pooja_name_en,
            pt.name_hi AS pooja_name_hi,
-           u.name AS user_name,
-           u.phone AS user_phone
+           u.name AS user_name
          FROM booking_requests br
          INNER JOIN bookings b ON b.id = br.booking_id
          INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
@@ -612,10 +610,11 @@ const listBookingsForPandit = async (req, res, next) => {
            pt.name_en AS pooja_name_en,
            pt.name_hi AS pooja_name_hi,
            u.name AS user_name,
-           u.phone AS user_phone
+           r.rating AS customer_rating
          FROM bookings b
          INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
          INNER JOIN users u ON u.id = b.user_id
+         LEFT JOIN ratings r ON r.booking_id = b.id
          WHERE b.confirmed_pandit_id = $1
          ORDER BY b.booking_date DESC, b.booking_time DESC
          LIMIT $2 OFFSET $3`,
@@ -659,10 +658,17 @@ const getBookingByIdForPandit = async (req, res, next) => {
          pt.name_hi AS pooja_name_hi,
          pt.samagri_list,
          u.name AS user_name,
-         u.phone AS user_phone
+         CASE
+           WHEN b.status <> 'completed'
+             AND (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata') >= (b.booking_date + b.booking_time - INTERVAL '3 hours')
+           THEN u.phone
+           ELSE NULL
+         END AS user_phone,
+         r.rating AS customer_rating
        FROM bookings b
        INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
        INNER JOIN users u ON u.id = b.user_id
+       LEFT JOIN ratings r ON r.booking_id = b.id
        WHERE b.id = $1 AND b.confirmed_pandit_id = $2
        LIMIT 1`,
       [req.params.id, panditId]

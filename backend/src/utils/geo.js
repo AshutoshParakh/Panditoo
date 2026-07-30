@@ -53,7 +53,6 @@ const findPanditsWithinRadius = async (userLat, userLng, radiusKm) => {
       SELECT
         id,
         name,
-        phone,
         email,
         rating,
         total_ratings_count,
@@ -96,7 +95,6 @@ const getNextBatch = async (userLat, userLng, radiusKm, excludePanditIds = [], b
       SELECT
         id,
         name,
-        phone,
         email,
         rating,
         total_ratings_count,
