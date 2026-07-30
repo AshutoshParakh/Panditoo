@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -83,7 +83,7 @@ export default function BookingDetailScreen({ route, navigation }) {
     } },
   ]);
 
-  if (loading && !booking) return <View style={s.state}><ActivityIndicator size="large" color={colors.primary} /><Text style={s.stateText}>Loading booking detailsâ€¦</Text></View>;
+  if (loading && !booking) return <View style={s.state}><ActivityIndicator size="large" color={colors.primary} /><Text style={s.stateText}>Loading booking details...</Text></View>;
   if (!booking) return <View style={s.state}><Text style={s.stateTitle}>Booking not found</Text><TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.retry}>Go back</Text></TouchableOpacity></View>;
 
   const status = String(booking.booking_status || "pending").toLowerCase();
@@ -97,13 +97,13 @@ export default function BookingDetailScreen({ route, navigation }) {
 
   if (completed) return (
     <SafeAreaView style={s.screen}><ScrollView contentContainerStyle={s.completedPage}>
-      <View style={s.completedHero}><View style={s.completedIcon}><Text style={s.check}>âœ“</Text></View><Text style={s.overline}>CEREMONY COMPLETED</Text><Text style={s.completedTitle}>{pooja}</Text><Text style={s.completedSub}>A concise record of your completed service.</Text></View>
+      <View style={s.completedHero}><View style={s.completedIcon}><Text style={s.check}>✓</Text></View><Text style={s.overline}>CEREMONY COMPLETED</Text><Text style={s.completedTitle}>{pooja}</Text><Text style={s.completedSub}>A concise record of your completed service.</Text></View>
       <View style={s.summaryCard}>
         <Summary label="CUSTOMER" value={booking.user_name || "Customer"} />
         <View style={s.rule} />
         <Summary label="YOUR EARNING" value={money(booking.pandit_payout_amount)} accent />
         <View style={s.rule} />
-        <Summary label="CUSTOMER RATING" value={booking.customer_rating ? `â˜… ${Number(booking.customer_rating).toFixed(1)}` : "Not rated yet"} />
+        <Summary label="CUSTOMER RATING" value={booking.customer_rating ? `★ ${Number(booking.customer_rating).toFixed(1)}` : "Not rated yet"} />
       </View>
       <TouchableOpacity style={s.secondaryButton} onPress={() => navigation.goBack()}><Text style={s.secondaryText}>Back to bookings</Text></TouchableOpacity>
     </ScrollView></SafeAreaView>
@@ -114,16 +114,16 @@ export default function BookingDetailScreen({ route, navigation }) {
       <View style={s.hero}>
         <View style={s.heroTop}><Text style={s.overline}>BOOKING DETAILS</Text><View style={[s.badge, pending ? s.pendingBadge : s.confirmedBadge]}><Text style={[s.badgeText, pending ? s.pendingText : s.confirmedText]}>{pending ? "PENDING" : "CONFIRMED"}</Text></View></View>
         <Text style={s.title}>{pooja}</Text><Text style={s.reference}>Booking #{booking.booking_id || bookingId}</Text>
-        <View style={s.schedule}><Summary label="DATE" value={validDate ? date.toLocaleDateString(hindi ? "hi-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "â€”"} /><View style={s.verticalRule} /><Summary label="TIME" value={booking.booking_time?.slice(0, 5) || "â€”"} /><View style={s.verticalRule} /><Summary label="EARNING" value={money(booking.pandit_payout_amount)} accent /></View>
+        <View style={s.schedule}><Summary label="DATE" value={validDate ? date.toLocaleDateString(hindi ? "hi-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"} /><View style={s.verticalRule} /><Summary label="TIME" value={booking.booking_time?.slice(0, 5) || "—"} /><View style={s.verticalRule} /><Summary label="EARNING" value={money(booking.pandit_payout_amount)} accent /></View>
       </View>
 
       {pending ? <View style={s.pendingCard}><Text style={s.pendingCardTitle}>Awaiting booking confirmation</Text><Text style={s.pendingCardText}>This request is kept separate from confirmed work. Full ceremony controls become available after confirmation.</Text></View> : null}
 
-      <View style={s.card}><Text style={s.cardLabel}>CUSTOMER</Text><Text style={s.customerName}>{booking.user_name || "Customer"}</Text>{booking.user_phone && !pending ? <><Text style={{fontSize:16,fontWeight:"800",color:colors.ink,marginTop:6}}>{booking.user_phone}</Text><View style={{flexDirection:"row",gap:10,marginTop:15}}><TouchableOpacity style={{flex:1,height:46,borderRadius:12,borderWidth:1,borderColor:colors.primary,alignItems:"center",justifyContent:"center"}} onPress={callCustomer}><Text style={{fontSize:13,fontWeight:"800",color:colors.primary}}>Call customer</Text></TouchableOpacity><TouchableOpacity style={{flex:1,height:46,borderRadius:12,backgroundColor:colors.green,alignItems:"center",justifyContent:"center"}} onPress={whatsappCustomer}><Text style={{fontSize:13,fontWeight:"800",color:"#FFF"}}>WhatsApp</Text></TouchableOpacity></View><View style={{backgroundColor:colors.greenSoft,borderRadius:10,padding:10,marginTop:11}}><Text style={{fontSize:11,fontWeight:"700",color:colors.green,textAlign:"center"}}>Contact unlocked for travel coordination</Text></View></> : <View style={s.privacy}><Text style={s.privacyIcon}>âŒ¾</Text><Text style={s.privacyText}>Mobile number and WhatsApp unlock 3 hours before the scheduled ceremony.</Text></View>}</View>
+      <View style={s.card}><Text style={s.cardLabel}>CUSTOMER</Text><Text style={s.customerName}>{booking.user_name || "Customer"}</Text>{booking.user_phone && !pending ? <><Text style={{fontSize:16,fontWeight:"800",color:colors.ink,marginTop:6}}>{booking.user_phone}</Text><View style={{flexDirection:"row",gap:10,marginTop:15}}><TouchableOpacity style={{flex:1,height:46,borderRadius:12,borderWidth:1,borderColor:colors.primary,alignItems:"center",justifyContent:"center"}} onPress={callCustomer}><Text style={{fontSize:13,fontWeight:"800",color:colors.primary}}>Call customer</Text></TouchableOpacity><TouchableOpacity style={{flex:1,height:46,borderRadius:12,backgroundColor:colors.green,alignItems:"center",justifyContent:"center"}} onPress={whatsappCustomer}><Text style={{fontSize:13,fontWeight:"800",color:"#FFF"}}>WhatsApp</Text></TouchableOpacity></View><View style={{backgroundColor:colors.greenSoft,borderRadius:10,padding:10,marginTop:11}}><Text style={{fontSize:11,fontWeight:"700",color:colors.green,textAlign:"center"}}>Contact unlocked for travel coordination</Text></View></> : <View style={s.privacy}><Text style={s.privacyIcon}>⌾</Text><Text style={s.privacyText}>Mobile number and WhatsApp unlock 3 hours before the scheduled ceremony.</Text></View>}</View>
 
       {!pending && <><View style={s.card}><Text style={s.cardLabel}>CEREMONY LOCATION</Text><Text style={s.address}>{booking.address || "Address will be shared before the ceremony."}</Text>{coordinates && <View style={s.mapWrap}><MapView style={s.map} initialRegion={{ ...coordinates, latitudeDelta: 0.012, longitudeDelta: 0.012 }} scrollEnabled={false} zoomEnabled={false}><Marker coordinate={coordinates} /></MapView></View>}<TouchableOpacity style={s.directionsButton} onPress={directions}><Text style={s.directionsText}>Open directions</Text></TouchableOpacity></View>
-      <View style={s.card}><Text style={s.cardLabel}>SAMAGRI CHECKLIST</Text><Text style={s.cardHint}>Tap an item as you prepare it.</Text>{samagri.length ? samagri.map((item, index) => <TouchableOpacity key={`${index}-${item.item_en || "item"}`} style={s.item} onPress={() => toggleItem(index)}><View style={[s.checkbox, checked[index] && s.checkboxDone]}><Text style={s.tick}>{checked[index] ? "âœ“" : ""}</Text></View><View style={s.itemCopy}><Text style={[s.itemName, checked[index] && s.itemNameDone]}>{(hindi ? item.item_hi : item.item_en) || item.item_en}</Text><Text style={s.owner}>{item.brought_by === "user" ? "Customer will arrange" : "You will arrange"}</Text></View></TouchableOpacity>) : <Text style={s.emptyText}>No samagri items listed.</Text>}</View>
-      {canComplete ? <TouchableOpacity style={s.completeButton} onPress={completeBooking} disabled={loading}><Text style={s.completeText}>{loading ? "Updatingâ€¦" : "Mark ceremony completed"}</Text></TouchableOpacity> : <View style={s.dateNotice}><Text style={s.dateNoticeText}>Completion will unlock on the scheduled ceremony date.</Text></View>}</>}
+      <View style={s.card}><Text style={s.cardLabel}>SAMAGRI CHECKLIST</Text><Text style={s.cardHint}>Tap an item as you prepare it.</Text>{samagri.length ? samagri.map((item, index) => <TouchableOpacity key={`${index}-${item.item_en || "item"}`} style={s.item} onPress={() => toggleItem(index)}><View style={[s.checkbox, checked[index] && s.checkboxDone]}><Text style={s.tick}>{checked[index] ? "✓" : ""}</Text></View><View style={s.itemCopy}><Text style={[s.itemName, checked[index] && s.itemNameDone]}>{(hindi ? item.item_hi : item.item_en) || item.item_en}</Text><Text style={s.owner}>{item.brought_by === "user" ? "Customer will arrange" : "You will arrange"}</Text></View></TouchableOpacity>) : <Text style={s.emptyText}>No samagri items listed.</Text>}</View>
+      {canComplete ? <TouchableOpacity style={s.completeButton} onPress={completeBooking} disabled={loading}><Text style={s.completeText}>{loading ? "Updating…" : "Mark ceremony completed"}</Text></TouchableOpacity> : <View style={s.dateNotice}><Text style={s.dateNoticeText}>Completion will unlock on the scheduled ceremony date.</Text></View>}</>}
     </ScrollView></SafeAreaView>
   );
 }

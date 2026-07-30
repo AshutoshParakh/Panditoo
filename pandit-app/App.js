@@ -46,9 +46,9 @@ function MainTabNavigator() {
         tabBarInactiveTintColor: "#a1a1aa",
         tabBarStyle: {
           backgroundColor: "#ffffff",
-          height: 72,
-          paddingBottom: 12,
-          paddingTop: 12,
+          height: 68,
+          paddingBottom: 9,
+          paddingTop: 9,
           borderTopWidth: 1.5,
           borderTopColor: "#ffedd5",
           shadowColor: "#7c2d12",
@@ -58,7 +58,7 @@ function MainTabNavigator() {
           elevation: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: "700",
         },
       }}
@@ -68,7 +68,7 @@ function MainTabNavigator() {
         component={RequestsScreen}
         options={{
           title: t("requests.title"),
-          tabBarLabel: t("requests.title"),
+          tabBarLabel: "Requests",
           tabBarBadge: pendingRequestsCount > 0 ? pendingRequestsCount : undefined,
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>◎</Text>
@@ -80,7 +80,7 @@ function MainTabNavigator() {
         component={BookingsScreen}
         options={{
           title: t("bookings.title"),
-          tabBarLabel: t("bookings.title"),
+          tabBarLabel: "Bookings",
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>▣</Text>
           ),
@@ -91,7 +91,7 @@ function MainTabNavigator() {
         component={EarningsScreen}
         options={{
           title: t("earnings.title"),
-          tabBarLabel: t("earnings.title"),
+          tabBarLabel: "Earnings",
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>₹</Text>
           ),
@@ -102,7 +102,7 @@ function MainTabNavigator() {
         component={ProfileScreen}
         options={{
           title: t("profile.title"),
-          tabBarLabel: t("profile.title"),
+          tabBarLabel: "Profile",
           tabBarIcon: ({ color, focused }) => (
             <Text style={{ fontSize: 20, color, opacity: focused ? 1 : 0.55 }}>◇</Text>
           ),
