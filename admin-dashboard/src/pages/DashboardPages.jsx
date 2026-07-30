@@ -311,7 +311,7 @@ export function OverviewPage() {
                   <Space direction="vertical" size={12} className="page-stack">
                     {needsAttention.expiredBookings.length ? needsAttention.expiredBookings.map((booking) => (
                       <div key={booking.id} className="attention-item danger">
-                        <div><Text strong>{booking.pooja_name}</Text><div className="table-subline">{booking.user_name} • {booking.user_phone}</div></div>
+                        <div><Text strong>{booking.pooja_name}</Text><div className="table-subline">{booking.user_name} â€¢ {booking.user_phone}</div></div>
                         <Space wrap size={[8, 8]}><Tag color="red">Expired</Tag><Tag>{booking.booking_date}</Tag><Tag>{formatCurrency(booking.platform_cut)}</Tag></Space>
                       </div>
                     )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No expired bookings in queue" />}
@@ -325,7 +325,7 @@ export function OverviewPage() {
                   <Space direction="vertical" size={12} className="page-stack">
                     {needsAttention.pendingPanditApprovals.length ? needsAttention.pendingPanditApprovals.map((pandit) => (
                       <div key={pandit.id} className="attention-item warning">
-                        <div><Text strong>{pandit.name}</Text><div className="table-subline">{pandit.phone} • {pandit.email || "No email"}</div></div>
+                        <div><Text strong>{pandit.name}</Text><div className="table-subline">{pandit.phone} â€¢ {pandit.email || "No email"}</div></div>
                         <Space wrap size={[8, 8]}><Tag color="orange">Approval pending</Tag><Tag>{pandit.experience_years || 0}+ yrs</Tag><Tag icon={<EnvironmentOutlined />}>{pandit.service_radius_km || 0} km</Tag></Space>
                       </div>
                     )) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No pending pandit approvals" />}
@@ -453,6 +453,14 @@ export function BookingsPage() {
 
   const selectedBooking = timelineData?.booking;
 
+  const formatDuration = (seconds) => {
+    if (seconds == null) return "Not started";
+    const total = Math.max(0, Number(seconds) || 0);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+  };
+
   const columns = [
     { title: "Booking ID", dataIndex: "id", key: "id", ellipsis: true, render: (value) => <span className="mono-cell">{value}</span> },
     { title: "User", dataIndex: "user_name", key: "user_name", render: (_value, record) => <div><Text strong>{record.user_name}</Text><div className="table-subline">{record.user_phone}</div></div> },
@@ -460,6 +468,7 @@ export function BookingsPage() {
     { title: "Pooja Type", dataIndex: "pooja_type_name", key: "pooja_type_name" },
     { title: "Date", dataIndex: "booking_date", key: "booking_date", sorter: true, render: (value, record) => <div><Text>{formatDate(value)}</Text><div className="table-subline">{record.booking_time || "-"}</div></div> },
     { title: "Status", dataIndex: "status", key: "status", sorter: true, render: (value) => <StatusTag value={value} /> },
+    { title: "Pooja Duration", dataIndex: "service_duration_seconds", key: "service_duration_seconds", render: (value, record) => <div><Text strong>{formatDuration(value)}</Text><div className="table-subline">{record.service_started_at ? (record.service_completed_at ? "Verified complete" : "In progress") : "Awaiting start OTP"}</div></div> },
     { title: "Prepaid", dataIndex: "prepaid_status", key: "prepaid_status", sorter: true, render: (value) => <StatusTag value={value === "paid" ? "completed" : value} /> },
     { title: "Payout", dataIndex: "pandit_payout_status", key: "pandit_payout_status", sorter: true, render: (value) => <StatusTag value={value === "paid" ? "completed" : value} /> },
     { title: "Actions", key: "actions", render: (_value, record) => <Space wrap><Button size="small" onClick={(event) => { event.stopPropagation(); openBooking(record); }}>View</Button><Button size="small" danger disabled={record.status === "expired"} loading={actionLoading === `expire-${record.id}`} onClick={(event) => { event.stopPropagation(); runBookingAction(`expire-${record.id}`, async () => { await adminApiRequest(`/admin/bookings/${record.id}/force-expire`, { method: "PATCH", token }); message.success("Booking force expired"); }); }}>Force Expire</Button></Space> },
@@ -497,6 +506,9 @@ export function BookingsPage() {
               <Descriptions.Item label="Status"><StatusTag value={selectedBooking.status} /></Descriptions.Item>
               <Descriptions.Item label="Booking Date">{formatDate(selectedBooking.booking_date)}</Descriptions.Item>
               <Descriptions.Item label="Booking Time">{selectedBooking.booking_time}</Descriptions.Item>
+              <Descriptions.Item label="Pooja Started">{selectedBooking.service_started_at ? formatDateTime(selectedBooking.service_started_at) : "Not started"}</Descriptions.Item>
+              <Descriptions.Item label="Pooja Completed">{selectedBooking.service_completed_at ? formatDateTime(selectedBooking.service_completed_at) : "Not completed"}</Descriptions.Item>
+              <Descriptions.Item label="Verified Duration">{formatDuration(selectedBooking.service_duration_seconds)}</Descriptions.Item>
               <Descriptions.Item label="Prepaid Status">{selectedBooking.prepaid_status}</Descriptions.Item>
               <Descriptions.Item label="Payout Status">{selectedBooking.pandit_payout_status}</Descriptions.Item>
               <Descriptions.Item label="Total Price">{formatCurrency(selectedBooking.total_price)}</Descriptions.Item>

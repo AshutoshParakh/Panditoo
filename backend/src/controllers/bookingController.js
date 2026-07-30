@@ -4,6 +4,12 @@ const {
   notifyPanditAlreadyBooked,
 } = require("../utils/notifications");
 const { lockPanditCalendar } = require("../utils/calendar");
+const crypto = require("crypto");
+const { sendOTP } = require("../utils/otpService");
+
+const serviceOtpHash = (bookingId, phase, otp) =>
+  crypto.createHash("sha256").update(`${bookingId}:${phase}:${otp}`).digest("hex");
+const generateServiceOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
 const parsePagination = (req) => {
   const page = Math.max(1, Number.parseInt(req.query.page || "1", 10));
@@ -455,77 +461,78 @@ const handlePanditBookingResponse = async (req, res, next) => {
 };
 
 const markBookingCompletedByPandit = async (req, res, next) => {
-  const client = await pool.connect();
+  return res.status(400).json({ success: false, message: "End OTP verification is required to complete this booking" });
+};
 
+const sendServiceOtp = (phase) => async (req, res, next) => {
   try {
     const { bookingId } = req.params;
-    const panditId = req.pandit.id;
-
-    await client.query("BEGIN");
-
-    const bookingResult = await client.query(
-      `
-        UPDATE bookings
-        SET status = 'completed', updated_at = NOW()
-        WHERE id = $1
-          AND confirmed_pandit_id = $2
-          AND status = 'confirmed'
-        RETURNING id, pandit_payout_amount, pandit_payout_status
-      `,
-      [bookingId, panditId]
+    const result = await query(
+      `SELECT b.id, b.status, b.service_started_at, u.phone
+       FROM bookings b INNER JOIN users u ON u.id = b.user_id
+       WHERE b.id = $1 AND b.confirmed_pandit_id = $2 LIMIT 1`,
+      [bookingId, req.pandit.id]
     );
-
-    if (bookingResult.rowCount === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ success: false, message: "Confirmed booking not found" });
-    }
-
-    const booking = bookingResult.rows[0];
-    const existingPayoutResult = await client.query(
-      `
-        SELECT id, status, amount
-        FROM payments
-        WHERE booking_id = $1
-          AND type = 'pandit_payout'
-        LIMIT 1
-      `,
-      [bookingId]
+    if (!result.rowCount) return res.status(404).json({ success: false, message: "Booking not found" });
+    const booking = result.rows[0];
+    if (booking.status !== "confirmed") return res.status(400).json({ success: false, message: "Booking is not active" });
+    if (phase === "start" && booking.service_started_at) return res.status(400).json({ success: false, message: "Pooja has already started" });
+    if (phase === "end" && !booking.service_started_at) return res.status(400).json({ success: false, message: "Start the pooja first" });
+    const otp = generateServiceOtp();
+    await query(
+      `UPDATE bookings SET ${phase}_otp_hash = $1, ${phase}_otp_expires_at = NOW() + INTERVAL '5 minutes', updated_at = NOW() WHERE id = $2`,
+      [serviceOtpHash(bookingId, phase, otp), bookingId]
     );
-
-    let payoutPayment;
-    if (existingPayoutResult.rowCount === 0) {
-      const payoutResult = await client.query(
-        `
-          INSERT INTO payments (booking_id, amount, type, status)
-          VALUES ($1, $2, 'pandit_payout', 'created')
-          RETURNING id, booking_id, amount, type, status, created_at
-        `,
-        [bookingId, booking.pandit_payout_amount]
-      );
-      payoutPayment = payoutResult.rows[0];
-    } else {
-      payoutPayment = existingPayoutResult.rows[0];
-    }
-
-    await client.query("COMMIT");
-
-    return res.status(200).json({
-      success: true,
-      message: "booking_completed",
-      booking_id: bookingId,
-      payout_payment: payoutPayment,
-    });
-  } catch (error) {
-    try {
-      await client.query("ROLLBACK");
-    } catch (_rollbackError) {
-      // Ignore rollback failures.
-    }
-    return next(error);
-  } finally {
-    client.release();
-  }
+    const delivery = await sendOTP(booking.phone, otp);
+    if (!delivery.success) return res.status(502).json({ success: false, message: "Could not send OTP" });
+    return res.json({ success: true, message: `${phase}_otp_sent`, expiresInMinutes: 5, ...(process.env.NODE_ENV !== "production" ? { debugOtp: otp } : {}) });
+  } catch (error) { return next(error); }
 };
+
+const verifyStartServiceOtp = async (req, res, next) => {
+  try {
+    const otp = String(req.body.otp || "").trim();
+    if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, message: "Enter a valid 6-digit OTP" });
+    const result = await query(
+      `UPDATE bookings SET service_started_at = NOW(), start_otp_hash = NULL, start_otp_expires_at = NULL, updated_at = NOW()
+       WHERE id = $1 AND confirmed_pandit_id = $2 AND status = 'confirmed' AND service_started_at IS NULL
+         AND start_otp_hash = $3 AND start_otp_expires_at > NOW()
+       RETURNING service_started_at`,
+      [req.params.bookingId, req.pandit.id, serviceOtpHash(req.params.bookingId, "start", otp)]
+    );
+    if (!result.rowCount) return res.status(400).json({ success: false, message: "Invalid or expired start OTP" });
+    return res.json({ success: true, message: "pooja_started", service_started_at: result.rows[0].service_started_at });
+  } catch (error) { return next(error); }
+};
+
+const verifyEndServiceOtp = async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const otp = String(req.body.otp || "").trim();
+    if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, message: "Enter a valid 6-digit OTP" });
+    await client.query("BEGIN");
+    const result = await client.query(
+      `UPDATE bookings SET status = 'completed', service_completed_at = NOW(), end_otp_hash = NULL, end_otp_expires_at = NULL, updated_at = NOW()
+       WHERE id = $1 AND confirmed_pandit_id = $2 AND status = 'confirmed' AND service_started_at IS NOT NULL
+         AND end_otp_hash = $3 AND end_otp_expires_at > NOW()
+       RETURNING id, pandit_payout_amount, service_started_at, service_completed_at`,
+      [req.params.bookingId, req.pandit.id, serviceOtpHash(req.params.bookingId, "end", otp)]
+    );
+    if (!result.rowCount) { await client.query("ROLLBACK"); return res.status(400).json({ success: false, message: "Invalid or expired completion OTP" }); }
+    await client.query(
+      `INSERT INTO payments (booking_id, amount, type, status)
+       SELECT $1, $2, 'pandit_payout', 'created'
+       WHERE NOT EXISTS (SELECT 1 FROM payments WHERE booking_id = $1 AND type = 'pandit_payout')`,
+      [req.params.bookingId, result.rows[0].pandit_payout_amount]
+    );
+    await client.query("COMMIT");
+    return res.json({ success: true, message: "booking_completed", service_started_at: result.rows[0].service_started_at, service_completed_at: result.rows[0].service_completed_at });
+  } catch (error) { try { await client.query("ROLLBACK"); } catch {} return next(error); }
+  finally { client.release(); }
+};
+
+const sendStartServiceOtp = sendServiceOtp("start");
+const sendEndServiceOtp = sendServiceOtp("end");
 
 const listRequestsForPandit = async (req, res, next) => {
   try {
@@ -607,6 +614,8 @@ const listBookingsForPandit = async (req, res, next) => {
            b.total_price,
            b.pandit_payout_amount,
            b.pandit_payout_status,
+           b.service_started_at,
+           b.service_completed_at,
            pt.name_en AS pooja_name_en,
            pt.name_hi AS pooja_name_hi,
            u.name AS user_name,
@@ -654,6 +663,8 @@ const getBookingByIdForPandit = async (req, res, next) => {
          b.total_price,
          b.pandit_payout_amount,
          b.pandit_payout_status,
+         b.service_started_at,
+         b.service_completed_at,
          pt.name_en AS pooja_name_en,
          pt.name_hi AS pooja_name_hi,
          pt.samagri_list,
@@ -694,4 +705,8 @@ module.exports = {
   listRequestsForPandit,
   listBookingsForPandit,
   getBookingByIdForPandit,
+  sendStartServiceOtp,
+  verifyStartServiceOtp,
+  sendEndServiceOtp,
+  verifyEndServiceOtp,
 };

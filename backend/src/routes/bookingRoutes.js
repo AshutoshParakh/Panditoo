@@ -10,6 +10,10 @@ const {
   listRequestsForPandit,
   listBookingsForPandit,
   getBookingByIdForPandit,
+  sendStartServiceOtp,
+  verifyStartServiceOtp,
+  sendEndServiceOtp,
+  verifyEndServiceOtp,
 } = require("../controllers/bookingController");
 const { authenticateUser, authenticatePandit } = require("../middleware/authMiddleware");
 const { validate } = require("../middleware/validationMiddleware");
@@ -23,6 +27,10 @@ router.patch("/:bookingId/cancel", authenticateUser, cancelBookingByUser);
 router.get("/pandit/requests", authenticatePandit, listRequestsForPandit);
 router.get("/pandit/bookings", authenticatePandit, listBookingsForPandit);
 router.get("/pandit/bookings/:id", authenticatePandit, getBookingByIdForPandit);
+router.post("/:bookingId/service/start-otp", authenticatePandit, sendStartServiceOtp);
+router.post("/:bookingId/service/start", authenticatePandit, verifyStartServiceOtp);
+router.post("/:bookingId/service/end-otp", authenticatePandit, sendEndServiceOtp);
+router.post("/:bookingId/service/end", authenticatePandit, verifyEndServiceOtp);
 router.get("/:id", authenticateUser, getBookingById);
 router.post(
   "/:bookingId/pandit-response",

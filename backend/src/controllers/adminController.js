@@ -147,6 +147,11 @@ const getAdminPanditById = async (req, res, next) => {
           b.pandit_payout_status,
           b.total_price::float AS total_price,
           b.pandit_payout_amount::float AS pandit_payout_amount,
+          b.service_started_at,
+          b.service_completed_at,
+          CASE WHEN b.service_started_at IS NOT NULL
+            THEN EXTRACT(EPOCH FROM (COALESCE(b.service_completed_at, NOW()) - b.service_started_at))::int
+            ELSE NULL END AS service_duration_seconds,
           u.name AS user_name,
           pt.name_en AS pooja_type_name,
           b.created_at
@@ -556,6 +561,11 @@ const listAdminBookings = async (req, res, next) => {
           b.total_price::float AS total_price,
           b.prepaid_amount::float AS prepaid_amount,
           b.pandit_payout_amount::float AS pandit_payout_amount,
+          b.service_started_at,
+          b.service_completed_at,
+          CASE WHEN b.service_started_at IS NOT NULL
+            THEN EXTRACT(EPOCH FROM (COALESCE(b.service_completed_at, NOW()) - b.service_started_at))::int
+            ELSE NULL END AS service_duration_seconds,
           b.flagged_for_manual_intervention,
           b.created_at,
           b.updated_at
@@ -620,6 +630,11 @@ const getAdminBookingTimeline = async (req, res, next) => {
         b.total_price::float AS total_price,
         b.prepaid_amount::float AS prepaid_amount,
         b.pandit_payout_amount::float AS pandit_payout_amount,
+        b.service_started_at,
+        b.service_completed_at,
+        CASE WHEN b.service_started_at IS NOT NULL
+          THEN EXTRACT(EPOCH FROM (COALESCE(b.service_completed_at, NOW()) - b.service_started_at))::int
+          ELSE NULL END AS service_duration_seconds,
         b.confirmed_pandit_id,
         cp.name AS confirmed_pandit_name,
         cp.phone AS confirmed_pandit_phone,
