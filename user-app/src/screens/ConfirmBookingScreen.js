@@ -6,17 +6,17 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import RazorpayCheckout from "react-native-razorpay";
+import { colors, shadow } from "../theme/homeTheme";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
 export default function ConfirmBookingScreen({ route, navigation }) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const currentLang = i18n.language || "en";
   const {
     pooja,
@@ -202,11 +202,12 @@ export default function ConfirmBookingScreen({ route, navigation }) {
   const verifyPayment = async (bookingId, orderId, paymentId, signature) => {
     setLoading(true);
     try {
+      const authToken = token || await AsyncStorage.getItem("user-app-token");
       const headers = {
         "Content-Type": "application/json",
       };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+      if (authToken) {
+        headers["Authorization"] = `Bearer ${authToken}`;
       }
 
       const verifyRes = await fetch(`${API_URL}/payments/verify`, {
@@ -237,359 +238,93 @@ export default function ConfirmBookingScreen({ route, navigation }) {
     }
   };
 
-  const handlePaymentFailure = () => {
-    setPaymentError(
-      currentLang === "hi"
-        ? "भुगतान विफल हो गया। कृपया पुन: प्रयास करें।"
-        : "Payment failed. Please retry confirming your booking."
-    );
-    setLoading(false);
-  };
+  const hindi = currentLang === "hi";
+  const formatMoney = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  const pandits = Array.isArray(selectedPandits) ? selectedPandits : [];
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>
-          {currentLang === "hi" ? "बुकिंग सारांश" : "Confirm Your Booking"}
-        </Text>
+        <View style={styles.intro}>
+          <Text style={styles.eyebrow}>{hindi ? "अंतिम चरण" : "FINAL STEP"}</Text>
+          <Text style={styles.pageTitle}>{hindi ? "अपनी बुकिंग जांचें" : "Review your booking"}</Text>
+          <Text style={styles.pageSubtitle}>{hindi ? "भुगतान से पहले पूजा की जानकारी सुनिश्चित कर लें।" : "Please confirm the ceremony details before payment."}</Text>
+        </View>
 
-        <View style={styles.summaryCard}>
-          <Text style={styles.poojaName}>{pooja?.name}</Text>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>📅 {currentLang === "hi" ? "तारीख और समय" : "Date & Time"}</Text>
-            <Text style={styles.val}>{bookingDate} at {bookingTime}</Text>
+        <View style={styles.ceremonyCard}>
+          <View style={styles.ceremonyTop}>
+            <View style={styles.omBadge}><Text style={styles.om}>ॐ</Text></View>
+            <View style={styles.ceremonyCopy}>
+              <Text style={styles.cardLabel}>{hindi ? "चयनित पूजा" : "SELECTED CEREMONY"}</Text>
+              <Text style={styles.poojaName}>{pooja?.name || (hindi ? "पूजा" : "Pooja")}</Text>
+            </View>
+            <View style={styles.readyBadge}><Text style={styles.readyText}>{hindi ? "तैयार" : "Ready"}</Text></View>
           </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>📍 {currentLang === "hi" ? "पूजा स्थल" : "Address"}</Text>
-            <Text style={[styles.val, styles.addressVal]} numberOfLines={2}>
-              {address}
-            </Text>
+          <View style={styles.rule} />
+          <View style={styles.detailRow}>
+            <View style={styles.detailMark}><Text style={styles.detailMarkText}>01</Text></View>
+            <View style={styles.detailCopy}><Text style={styles.detailLabel}>{hindi ? "तारीख और समय" : "Date & time"}</Text><Text style={styles.detailValue}>{bookingDate || "—"}  ·  {bookingTime || "—"}</Text></View>
           </View>
-
-          <View style={styles.panditsBox}>
-            <Text style={styles.panditsTitle}>
-              👤 {currentLang === "hi" ? "चयनित पंडित" : "Selected Pandits"}
-            </Text>
-            {selectedPandits?.map((p) => (
-              <Text key={p.id} style={styles.panditName}>• {p.name}</Text>
-            ))}
+          <View style={styles.detailRow}>
+            <View style={styles.detailMark}><Text style={styles.detailMarkText}>02</Text></View>
+            <View style={styles.detailCopy}><Text style={styles.detailLabel}>{hindi ? "पूजा स्थल" : "Ceremony location"}</Text><Text style={styles.detailValue} numberOfLines={3}>{address || (hindi ? "पता उपलब्ध नहीं" : "Address unavailable")}</Text></View>
           </View>
         </View>
 
+        <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>{hindi ? "पंडित प्राथमिकता" : "Pandit preference"}</Text><Text style={styles.sectionSubtitle}>{hindi ? "अनुरोध इन पंडितों को भेजा जाएगा" : "Your request will be shared with these pandits"}</Text></View><Text style={styles.sectionCount}>{pandits.length}</Text></View>
+        <View style={styles.panditCard}>
+          {pandits.length ? pandits.map((pandit, index) => (
+            <View key={pandit.id || index} style={[styles.panditRow, index === pandits.length - 1 && styles.lastPanditRow]}>
+              <View style={styles.avatar}><Text style={styles.avatarText}>{String(pandit.name || "P").charAt(0).toUpperCase()}</Text></View>
+              <View style={styles.panditCopy}><Text style={styles.panditName}>{pandit.name || "Pandit"}</Text><Text style={styles.panditMeta}>{hindi ? "सत्यापित पंडित" : "Verified pandit"}</Text></View>
+              <Text style={styles.verified}>✓</Text>
+            </View>
+          )) : <View style={styles.openPreference}><Text style={styles.openPreferenceTitle}>{hindi ? "सभी उपलब्ध पंडित" : "Any available verified pandit"}</Text><Text style={styles.openPreferenceText}>{hindi ? "हम आपके समय के अनुसार उपयुक्त पंडित खोजेंगे।" : "We will find the best match for your selected time."}</Text></View>}
+        </View>
+
+        <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>{hindi ? "भुगतान सारांश" : "Payment summary"}</Text><Text style={styles.sectionSubtitle}>{hindi ? "स्पष्ट और सुरक्षित भुगतान" : "Simple, transparent and secure"}</Text></View></View>
         <View style={styles.paymentCard}>
-          <Text style={styles.paymentTitle}>
-            {currentLang === "hi" ? "भुगतान विवरण" : "Payment Information"}
-          </Text>
-
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>{currentLang === "hi" ? "कुल मूल्य:" : "Total Price:"}</Text>
-            <Text style={styles.priceVal}>₹{totalPrice}</Text>
+          <View style={styles.priceRow}><Text style={styles.priceLabel}>{hindi ? "कुल पूजा शुल्क" : "Total ceremony fee"}</Text><Text style={styles.priceVal}>{formatMoney(totalPrice)}</Text></View>
+          <View style={styles.paymentRule} />
+          <View style={styles.payNowRow}>
+            <View style={styles.payNowCopy}><View style={styles.prepaidTitleRow}><Text style={styles.prepaidLabel}>{hindi ? "अभी भुगतान करें" : "Pay now"}</Text><View style={styles.percentBadge}><Text style={styles.percentText}>30%</Text></View></View><Text style={styles.prepaidNote}>{hindi ? "आपकी बुकिंग सुरक्षित करने के लिए" : "To secure your booking"}</Text></View>
+            <Text style={styles.prepaidVal}>{formatMoney(prepaidAmount)}</Text>
           </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.prepaidRow}>
-            <View style={styles.prepaidLabelCol}>
-              <Text style={styles.prepaidLabel}>
-                {currentLang === "hi" ? "अग्रिम भुगतान (30%):" : "Prepayment (30%):"}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowTooltip(!showTooltip)}
-                style={styles.infoBtn}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.infoIcon}>ⓘ</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.prepaidVal}>₹{prepaidAmount}</Text>
+          <TouchableOpacity style={styles.balanceRow} activeOpacity={0.75} onPress={() => setShowTooltip((value) => !value)}>
+            <View><Text style={styles.balanceLabel}>{hindi ? "सेवा के दिन देय शेष" : "Balance due on ceremony day"}</Text><Text style={styles.balanceNote}>{hindi ? "सीधे पंडित जी को" : "Paid directly to the pandit"}</Text></View>
+            <View style={styles.balanceRight}><Text style={styles.balanceValue}>{formatMoney(remainingAmount)}</Text><Text style={styles.infoIcon}>i</Text></View>
+          </TouchableOpacity>
+          {showTooltip ? <View style={styles.tooltipBox}><Text style={styles.tooltipText}>{hindi ? `शेष 70% (${formatMoney(remainingAmount)}) पूजा संपन्न होने के दिन सीधे पंडित जी को देना होगा।` : `The remaining 70% (${formatMoney(remainingAmount)}) is paid directly to the pandit on the ceremony day.`}</Text></View> : null}
+          <View style={styles.secureRow}>
+            <View style={styles.secureIcon}><Text style={styles.secureIconText}>✓</Text></View>
+            <View style={styles.secureCopy}><Text style={styles.secureTitle}>{hindi ? "सुरक्षित ऑनलाइन भुगतान" : "Secure online payment"}</Text><Text style={styles.secureText}>{hindi ? "आपकी भुगतान जानकारी एन्क्रिप्टेड है" : "Your payment information is encrypted and protected"}</Text></View>
           </View>
-
-          {showTooltip && (
-            <View style={styles.tooltipBox}>
-              <Text style={styles.tooltipText}>
-                {currentLang === "hi"
-                  ? "यह आपकी बुकिंग सुरक्षित करता है, शेष 70% (₹" + remainingAmount + ") सेवा के दिन सीधे पंडित जी को दिया जाएगा।"
-                  : "This secures your booking, remaining 70% (₹" + remainingAmount + ") paid to pandit on service day."}
-              </Text>
-            </View>
-          )}
         </View>
 
-        {paymentError ? <Text style={styles.errorText}>{paymentError}</Text> : null}
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#d97706" />
-            <Text style={styles.loadingText}>
-              {currentLang === "hi" ? "बुकिंग की पुष्टि की जा रही है..." : "Confirming your booking..."}
-            </Text>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.payBtn} onPress={handlePayAndConfirm} activeOpacity={0.8}>
-            <Text style={styles.payBtnText}>
-              🙏 {currentLang === "hi" ? "बुकिंग की पुष्टि करें" : "Confirm Booking"}
-            </Text>
-          </TouchableOpacity>
-        )}
+        {paymentError ? <View style={styles.errorBox}><Text style={styles.errorTitle}>{hindi ? "भुगतान पूरा नहीं हुआ" : "Payment could not be completed"}</Text><Text style={styles.errorText}>{paymentError}</Text></View> : null}
+        <Text style={styles.terms}>{hindi ? "आगे बढ़कर आप बुकिंग और रद्दीकरण की शर्तों से सहमत होते हैं।" : "By continuing, you agree to the booking and cancellation terms."}</Text>
+        <View style={styles.scrollSpacer} />
       </ScrollView>
-
+      <View style={styles.footer}>
+        <View><Text style={styles.footerLabel}>{hindi ? "अभी देय" : "PAYABLE NOW"}</Text><Text style={styles.footerPrice}>{formatMoney(prepaidAmount)}</Text></View>
+        <TouchableOpacity disabled={loading} style={[styles.payBtn, loading && styles.payBtnDisabled]} onPress={handlePayAndConfirm} activeOpacity={0.82}>
+          {loading ? <ActivityIndicator color="#FFFFFF" /> : <><Text style={styles.payBtnText}>{hindi ? "भुगतान करें" : "Pay & confirm"}</Text><Text style={styles.payArrow}>›</Text></>}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f7efe5",
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-    gap: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#6a1b1a",
-    marginBottom: 4,
-  },
-  summaryCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#e3d5c5",
-    shadowColor: "#6a1b1a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
-  },
-  poojaName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#6a1b1a",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f7efe5",
-    paddingBottom: 8,
-    marginBottom: 4,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#a08f80",
-  },
-  val: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#3a2d21",
-    textAlign: "right",
-    flex: 1,
-    paddingLeft: 20,
-  },
-  addressVal: {
-    fontSize: 14,
-    color: "#5f4b3a",
-  },
-  panditsBox: {
-    marginTop: 10,
-    backgroundColor: "#fcfaf7",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#f0e3d5",
-    gap: 6,
-  },
-  panditsTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#6a1b1a",
-    marginBottom: 4,
-  },
-  panditName: {
-    fontSize: 15,
-    color: "#5f4b3a",
-    fontWeight: "600",
-    paddingLeft: 4,
-  },
-  paymentCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#e3d5c5",
-    shadowColor: "#6a1b1a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
-  },
-  paymentTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#6a1b1a",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f7efe5",
-    paddingBottom: 8,
-    marginBottom: 4,
-  },
-  priceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  priceLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#5f4b3a",
-  },
-  priceVal: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#5f4b3a",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#e3d5c5",
-  },
-  prepaidRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  prepaidLabelCol: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  prepaidLabel: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#6a1b1a",
-  },
-  infoBtn: {
-    padding: 4,
-  },
-  infoIcon: {
-    fontSize: 16,
-    color: "#d97706",
-    fontWeight: "bold",
-  },
-  prepaidVal: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#d97706",
-  },
-  tooltipBox: {
-    backgroundColor: "#fffbeb",
-    borderWidth: 1,
-    borderColor: "#fde68a",
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 4,
-  },
-  tooltipText: {
-    fontSize: 13,
-    color: "#b45309",
-    fontWeight: "600",
-    lineHeight: 18,
-  },
-  errorText: {
-    fontSize: 14,
-    color: "#b91c1c",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  loadingContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 10,
-  },
-  loadingText: {
-    fontSize: 15,
-    color: "#5f4b3a",
-    fontWeight: "600",
-  },
-  payBtn: {
-    height: 54,
-    backgroundColor: "#d97706",
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#d97706",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-    marginTop: 10,
-  },
-  payBtnText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  modalBg: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  modalContent: {
-    width: "100%",
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 24,
-    gap: 16,
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#6a1b1a",
-  },
-  modalDesc: {
-    fontSize: 15,
-    color: "#5f4b3a",
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  modalButtons: {
-    width: "100%",
-    gap: 12,
-    marginTop: 10,
-  },
-  modalBtn: {
-    width: "100%",
-    height: 50,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalSuccessBtn: {
-    backgroundColor: "#6a1b1a",
-  },
-  modalFailBtn: {
-    backgroundColor: "#ffffff",
-    borderWidth: 2,
-    borderColor: "#6a1b1a",
-  },
-  modalBtnTextSuccess: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  modalBtnTextFail: {
-    color: "#6a1b1a",
-    fontSize: 16,
-    fontWeight: "700",
-  },
+  container: { flex: 1, backgroundColor: "#F8F5F0" }, scrollContent: { paddingHorizontal: 18, paddingTop: 8 },
+  intro: { paddingVertical: 12 }, eyebrow: { color: colors.primary, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 }, pageTitle: { color: colors.ink, fontSize: 27, lineHeight: 33, fontWeight: "800", marginTop: 7 }, pageSubtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 5 },
+  ceremonyCard: { backgroundColor: "#FFFFFF", borderRadius: 18, borderWidth: 1, borderColor: "#E8DED5", marginTop: 10, padding: 16, ...shadow }, ceremonyTop: { flexDirection: "row", alignItems: "center" }, omBadge: { width: 48, height: 48, borderRadius: 13, backgroundColor: "#F1E6E1", alignItems: "center", justifyContent: "center" }, om: { color: colors.primary, fontSize: 23 }, ceremonyCopy: { flex: 1, marginLeft: 12 }, cardLabel: { color: colors.muted, fontSize: 8, fontWeight: "800", letterSpacing: 1.1 }, poojaName: { color: colors.ink, fontSize: 16, fontWeight: "800", marginTop: 3 }, readyBadge: { borderRadius: 10, backgroundColor: colors.greenSoft, paddingHorizontal: 9, paddingVertical: 5 }, readyText: { color: colors.green, fontSize: 9, fontWeight: "800" }, rule: { height: 1, backgroundColor: "#EFE7DF", marginVertical: 15 },
+  detailRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 14 }, detailMark: { width: 26, height: 26, borderRadius: 8, backgroundColor: "#F3EEE9", alignItems: "center", justifyContent: "center" }, detailMarkText: { color: "#94877D", fontSize: 8, fontWeight: "800" }, detailCopy: { flex: 1, marginLeft: 11 }, detailLabel: { color: colors.muted, fontSize: 9, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 }, detailValue: { color: "#4A423C", fontSize: 12, lineHeight: 18, fontWeight: "700", marginTop: 3 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 27, marginBottom: 10 }, sectionTitle: { color: colors.ink, fontSize: 16, fontWeight: "800" }, sectionSubtitle: { color: colors.muted, fontSize: 10, marginTop: 3 }, sectionCount: { minWidth: 28, height: 28, borderRadius: 14, backgroundColor: "#ECE4DD", color: "#756A62", fontSize: 10, fontWeight: "800", textAlign: "center", textAlignVertical: "center" },
+  panditCard: { backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1, borderColor: "#E8DED5", paddingHorizontal: 15 }, panditRow: { minHeight: 64, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#F0E9E3" }, lastPanditRow: { borderBottomWidth: 0 }, avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#EEE5DD", alignItems: "center", justifyContent: "center" }, avatarText: { color: colors.primary, fontSize: 13, fontWeight: "800" }, panditCopy: { flex: 1, marginLeft: 11 }, panditName: { color: colors.ink, fontSize: 12, fontWeight: "800" }, panditMeta: { color: colors.muted, fontSize: 9, marginTop: 3 }, verified: { width: 21, height: 21, borderRadius: 11, color: colors.green, backgroundColor: colors.greenSoft, textAlign: "center", textAlignVertical: "center", fontSize: 10, fontWeight: "800" }, openPreference: { paddingVertical: 17 }, openPreferenceTitle: { color: colors.ink, fontSize: 12, fontWeight: "800" }, openPreferenceText: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 4 },
+  paymentCard: { backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1, borderColor: "#E8DED5", padding: 16, ...shadow }, priceRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, priceLabel: { color: "#61574F", fontSize: 12, fontWeight: "600" }, priceVal: { color: colors.ink, fontSize: 16, fontWeight: "800" }, paymentRule: { height: 1, backgroundColor: "#EFE7E0", marginVertical: 15 }, payNowRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, payNowCopy: { flex: 1 }, prepaidTitleRow: { flexDirection: "row", alignItems: "center" }, prepaidLabel: { color: colors.primary, fontSize: 14, fontWeight: "800" }, percentBadge: { marginLeft: 7, backgroundColor: "#F2DFDC", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 }, percentText: { color: colors.primary, fontSize: 8, fontWeight: "800" }, prepaidNote: { color: colors.muted, fontSize: 9, marginTop: 4 }, prepaidVal: { color: colors.primary, fontSize: 23, fontWeight: "800" },
+  balanceRow: { marginTop: 15, padding: 12, borderRadius: 12, backgroundColor: "#F7F3EF", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, balanceLabel: { color: "#5B524B", fontSize: 10, fontWeight: "700" }, balanceNote: { color: colors.muted, fontSize: 8, marginTop: 3 }, balanceRight: { flexDirection: "row", alignItems: "center" }, balanceValue: { color: "#5B524B", fontSize: 12, fontWeight: "800" }, infoIcon: { width: 17, height: 17, borderRadius: 9, borderWidth: 1, borderColor: "#B7A99E", color: "#8C7E73", fontSize: 9, fontWeight: "800", textAlign: "center", textAlignVertical: "center", marginLeft: 7 }, tooltipBox: { backgroundColor: "#FBF5E8", borderRadius: 10, padding: 11, marginTop: 8 }, tooltipText: { color: "#77613F", fontSize: 9, lineHeight: 15 },
+  secureRow: { marginTop: 15, flexDirection: "row", alignItems: "center" }, secureIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }, secureIconText: { color: colors.green, fontWeight: "800", fontSize: 11 }, secureCopy: { flex: 1, marginLeft: 10 }, secureTitle: { color: "#365E4B", fontSize: 10, fontWeight: "800" }, secureText: { color: "#73847B", fontSize: 8, marginTop: 2 },
+  errorBox: { backgroundColor: "#FBEDEC", borderWidth: 1, borderColor: "#F1CDCA", borderRadius: 12, padding: 13, marginTop: 14 }, errorTitle: { color: "#993F3F", fontSize: 11, fontWeight: "800" }, errorText: { color: "#A65A57", fontSize: 9, lineHeight: 14, marginTop: 3 }, terms: { color: colors.muted, fontSize: 9, lineHeight: 14, textAlign: "center", marginTop: 18, paddingHorizontal: 22 }, scrollSpacer: { height: 100 },
+  footer: { position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 78, backgroundColor: "#FFFFFF", borderTopWidth: 1, borderTopColor: "#E6DCD3", paddingHorizontal: 18, paddingVertical: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...shadow }, footerLabel: { color: colors.muted, fontSize: 8, fontWeight: "800", letterSpacing: 1 }, footerPrice: { color: colors.ink, fontSize: 20, fontWeight: "800", marginTop: 2 }, payBtn: { minWidth: 190, height: 50, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center" }, payBtnDisabled: { opacity: 0.7 }, payBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" }, payArrow: { color: "#FFFFFF", fontSize: 23, marginLeft: 10, marginTop: -2 },
 });

@@ -1,22 +1,15 @@
 import React, { useEffect, useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  Linking,
-  Alert,
-} from "react-native";
+import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
+import { colors, shadow } from "../theme/homeTheme";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
 export default function BookingConfirmedScreen({ route, navigation }) {
-  const { t, i18n } = useTranslation();
-  const currentLang = i18n.language || "en";
+  const { i18n } = useTranslation();
+  const hindi = i18n.language === "hi";
   const initialBooking = route.params?.booking;
   const [booking, setBooking] = useState(initialBooking);
 
@@ -32,312 +25,55 @@ export default function BookingConfirmedScreen({ route, navigation }) {
     return () => { active = false; };
   }, [initialBooking?.id]);
 
-  const handleBackToHome = () => {
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "Main" }],
-    });
-  };
+  const goHome = () => navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+  const phone = booking?.confirmed_pandit?.phone;
+  const missingPhone = () => Alert.alert(hindi ? "नंबर उपलब्ध नहीं" : "Phone unavailable", hindi ? "पंडित जी का फोन नंबर अभी उपलब्ध नहीं है।" : "The pandit's phone number is not available yet.");
+  const handleCall = () => phone ? Linking.openURL(`tel:${phone}`).catch(missingPhone) : missingPhone();
+  const handleWhatsApp = () => phone ? Linking.openURL(`https://wa.me/${phone.replace(/\D/g, "")}`).catch(() => Alert.alert("WhatsApp", hindi ? "WhatsApp उपलब्ध नहीं है।" : "WhatsApp is not available on this device.")) : missingPhone();
 
-  const handleCall = () => {
-    const phone = booking?.confirmed_pandit?.phone;
-    if (!phone) { Alert.alert("Phone unavailable", "This pandit's phone number is not available."); return; }
-    Linking.openURL(`tel:${phone}`).catch(() => {
-      Alert.alert(
-        currentLang === "hi" ? "त्रुटि" : "Error",
-        currentLang === "hi"
-          ? "इस डिवाइस पर कॉल सुविधा उपलब्ध नहीं है।"
-          : "Call facility is not available on this device."
-      );
-    });
-  };
-
-  const handleWhatsApp = () => {
-    const phone = booking?.confirmed_pandit?.phone;
-    if (!phone) { Alert.alert("Phone unavailable", "This pandit's phone number is not available."); return; }
-    const cleanPhone = phone.replace(/\D/g, "");
-    Linking.openURL(`https://wa.me/${cleanPhone}`).catch(() => {
-      Alert.alert(
-        currentLang === "hi" ? "त्रुटि" : "Error",
-        currentLang === "hi" ? "WhatsApp इंस्टॉल नहीं है।" : "WhatsApp is not installed."
-      );
-    });
-  };
-
-  const poojaName =
-    currentLang === "hi"
-      ? booking?.name_hi || booking?.pooja?.name_hi || "पूजा समारोह"
-      : booking?.name_en || booking?.pooja?.name_en || "Pooja";
+  const poojaName = hindi ? booking?.name_hi || booking?.pooja?.name_hi || booking?.name_en || "पूजा" : booking?.name_en || booking?.pooja?.name_en || booking?.name_hi || "Pooja";
   const pandit = booking?.confirmed_pandit || {};
+  const reference = String(booking?.id || "").slice(0, 8).toUpperCase();
+  const date = booking?.booking_date ? new Date(booking.booking_date).toLocaleDateString(hindi ? "hi-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>🙏</Text>
-          </View>
-          <Text style={styles.title}>
-            {currentLang === "hi" ? "बुकिंग की पुष्टि हो गई!" : "Booking Confirmed!"}
-          </Text>
-          <Text style={styles.subtitle}>
-            {currentLang === "hi"
-              ? "पंडित जी ने आपकी बुकिंग स्वीकार कर ली है।"
-              : "A pandit has accepted your booking request."}
-          </Text>
+    <SafeAreaView style={s.screen}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
+        <View style={s.successHero}>
+          <View style={s.successRing}><View style={s.successCircle}><Text style={s.check}>✓</Text></View></View>
+          <Text style={s.eyebrow}>{hindi ? "बुकिंग पक्की हुई" : "BOOKING CONFIRMED"}</Text>
+          <Text style={s.title}>{hindi ? "आपकी पूजा निश्चित है" : "Your ceremony is confirmed"}</Text>
+          <Text style={s.subtitle}>{hindi ? "पंडित जी ने आपका अनुरोध स्वीकार कर लिया है।" : "A verified pandit has accepted your request."}</Text>
+          {reference ? <View style={s.referenceBadge}><Text style={s.referenceLabel}>{hindi ? "बुकिंग आईडी" : "BOOKING ID"}</Text><Text style={s.reference}>#{reference}</Text></View> : null}
         </View>
 
-        {/* Pandit Details Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            {currentLang === "hi" ? "पंडित विवरण" : "Your Pandit"}
-          </Text>
-          <View style={styles.panditRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarIcon}>👤</Text>
-            </View>
-            <View style={styles.panditInfo}>
-              <Text style={styles.panditName}>{pandit.name || "Pandit details unavailable"}</Text>
-              {pandit.rating != null ? <Text style={styles.panditRating}>⭐ {pandit.rating}</Text> : <Text style={styles.panditRating}>⭐ 4.9</Text>}
-            </View>
-          </View>
-
-          {/* Action buttons */}
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleCall} activeOpacity={0.8}>
-              <Text style={styles.actionBtnText}>📞 {currentLang === "hi" ? "कॉल करें" : "Call"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.whatsappBtn]}
-              onPress={handleWhatsApp}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.actionBtnText, styles.whatsappText]}>💬 WhatsApp</Text>
-            </TouchableOpacity>
-          </View>
+        <Text style={s.sectionLabel}>{hindi ? "आपके पंडित" : "YOUR PANDIT"}</Text>
+        <View style={s.panditCard}>
+          <View style={s.panditTop}><View style={s.avatar}><Text style={s.avatarText}>{String(pandit.name || "P").charAt(0).toUpperCase()}</Text></View><View style={s.panditCopy}><View style={s.nameRow}><Text style={s.panditName}>{pandit.name || (hindi ? "पंडित विवरण जल्द उपलब्ध होगा" : "Pandit details coming soon")}</Text><Text style={s.verified}>✓</Text></View><Text style={s.panditMeta}>{hindi ? "सत्यापित सेवा प्रदाता" : "Verified service professional"}</Text>{pandit.rating != null ? <Text style={s.rating}>★ {Number(pandit.rating).toFixed(1)}</Text> : null}</View></View>
+          <View style={s.actionRow}><TouchableOpacity style={s.secondaryButton} onPress={handleCall}><Text style={s.secondaryMark}>01</Text><Text style={s.secondaryText}>{hindi ? "कॉल करें" : "Call pandit"}</Text></TouchableOpacity><TouchableOpacity style={s.secondaryButton} onPress={handleWhatsApp}><Text style={s.secondaryMark}>02</Text><Text style={s.secondaryText}>WhatsApp</Text></TouchableOpacity></View>
         </View>
 
-        {/* Booking Details Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            {currentLang === "hi" ? "बुकिंग विवरण" : "Booking Details"}
-          </Text>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>{currentLang === "hi" ? "पूजा:" : "Pooja:"}</Text>
-            <Text style={styles.val}>{poojaName}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>{currentLang === "hi" ? "दिनांक:" : "Date:"}</Text>
-            <Text style={styles.val}>{booking?.booking_date}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>{currentLang === "hi" ? "समय:" : "Time:"}</Text>
-            <Text style={styles.val}>{booking?.booking_time}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>{currentLang === "hi" ? "पता:" : "Address:"}</Text>
-            <Text style={[styles.val, styles.addressVal]} numberOfLines={2}>
-              {booking?.address}
-            </Text>
-          </View>
+        <Text style={s.sectionLabel}>{hindi ? "पूजा विवरण" : "CEREMONY DETAILS"}</Text>
+        <View style={s.detailsCard}>
+          <View style={s.ceremonyHeader}><View style={s.omBox}><Text style={s.om}>ॐ</Text></View><View style={s.ceremonyCopy}><Text style={s.detailHint}>{hindi ? "चयनित पूजा" : "CEREMONY"}</Text><Text style={s.ceremonyName}>{poojaName}</Text></View><View style={s.status}><Text style={s.statusText}>{hindi ? "पुष्ट" : "Confirmed"}</Text></View></View>
+          <View style={s.rule} />
+          <Detail index="01" label={hindi ? "तारीख" : "Date"} value={date} />
+          <Detail index="02" label={hindi ? "समय" : "Time"} value={booking?.booking_time || "—"} />
+          <Detail index="03" label={hindi ? "पूजा स्थल" : "Location"} value={booking?.address || "—"} last />
         </View>
 
-        {/* Go back to Home */}
-        <TouchableOpacity style={styles.btn} onPress={handleBackToHome} activeOpacity={0.8}>
-          <Text style={styles.btnText}>
-            {currentLang === "hi" ? "मुख्य पृष्ठ पर वापस जाएं" : "Back to Home"}
-          </Text>
-        </TouchableOpacity>
+        <View style={s.reminder}><Text style={s.reminderMark}>i</Text><View style={s.reminderCopy}><Text style={s.reminderTitle}>{hindi ? "पूजा से पहले" : "Before the ceremony"}</Text><Text style={s.reminderText}>{hindi ? "आवश्यक सामग्री तैयार रखें। जरूरत होने पर पंडित जी से संपर्क करें।" : "Keep the required materials ready. Contact your pandit if you need any guidance."}</Text></View></View>
+        <TouchableOpacity style={s.homeButton} onPress={goHome} activeOpacity={0.8}><Text style={s.homeText}>{hindi ? "मेरी बुकिंग देखें" : "View my bookings"}</Text><Text style={s.homeArrow}>›</Text></TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#f7efe5",
-  },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 40,
-    gap: 16,
-    alignItems: "center",
-  },
-  header: {
-    alignItems: "center",
-    marginTop: 10,
-    gap: 8,
-  },
-  badge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#fffbeb",
-    borderWidth: 2,
-    borderColor: "#d97706",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#d97706",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  badgeText: {
-    fontSize: 44,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#6a1b1a",
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "#5f4b3a",
-    textAlign: "center",
-  },
-  card: {
-    width: "100%",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#e3d5c5",
-    shadowColor: "#6a1b1a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#6a1b1a",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f7efe5",
-    paddingBottom: 8,
-    marginBottom: 4,
-  },
-  panditRow: {
-    flexDirection: "row",
-    gap: 16,
-    alignItems: "center",
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#f7efe5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarIcon: {
-    fontSize: 28,
-  },
-  panditInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  panditName: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#6a1b1a",
-  },
-  panditRating: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#d97706",
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
-  },
-  actionBtn: {
-    flex: 1,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: "#ffffff",
-    borderWidth: 1.5,
-    borderColor: "#6a1b1a",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  whatsappBtn: {
-    borderColor: "#25D366",
-  },
-  actionBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#6a1b1a",
-  },
-  whatsappText: {
-    color: "#25D366",
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#a08f80",
-  },
-  val: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#3a2d21",
-    textAlign: "right",
-    flex: 1,
-    paddingLeft: 20,
-  },
-  addressVal: {
-    color: "#5f4b3a",
-  },
-  calendarBtn: {
-    width: "100%",
-    height: 50,
-    backgroundColor: "#ffffff",
-    borderWidth: 1.5,
-    borderColor: "#d97706",
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#d97706",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  calendarBtnText: {
-    color: "#d97706",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  btn: {
-    width: "100%",
-    height: 52,
-    backgroundColor: "#6a1b1a",
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#6a1b1a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  btnText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
+const Detail = ({ index, label, value, last }) => <View style={[s.detailRow, last && s.lastDetail]}><View style={s.index}><Text style={s.indexText}>{index}</Text></View><Text style={s.detailLabel}>{label}</Text><Text numberOfLines={3} style={s.detailValue}>{value}</Text></View>;
+
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#F8F5F0" }, content: { paddingHorizontal: 18, paddingBottom: 30 }, successHero: { alignItems: "center", paddingTop: 18, paddingBottom: 25 }, successRing: { width: 82, height: 82, borderRadius: 41, borderWidth: 1, borderColor: "#B8D4C6", alignItems: "center", justifyContent: "center" }, successCircle: { width: 62, height: 62, borderRadius: 31, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }, check: { color: colors.green, fontSize: 27, fontWeight: "700" }, eyebrow: { color: colors.green, fontSize: 9, fontWeight: "800", letterSpacing: 1.5, marginTop: 17 }, title: { color: colors.ink, fontSize: 25, lineHeight: 32, fontWeight: "800", textAlign: "center", marginTop: 7 }, subtitle: { color: colors.muted, fontSize: 11, textAlign: "center", marginTop: 6 }, referenceBadge: { flexDirection: "row", alignItems: "center", backgroundColor: "#EEE9E4", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, marginTop: 14 }, referenceLabel: { color: colors.muted, fontSize: 7, fontWeight: "800", letterSpacing: 0.8 }, reference: { color: "#655B54", fontSize: 9, fontWeight: "800", marginLeft: 6 },
+  sectionLabel: { color: colors.primary, fontSize: 9, fontWeight: "800", letterSpacing: 1.3, marginTop: 20, marginBottom: 9 }, panditCard: { backgroundColor: "#FFFFFF", borderRadius: 17, borderWidth: 1, borderColor: "#E7DDD4", padding: 15, ...shadow }, panditTop: { flexDirection: "row", alignItems: "center" }, avatar: { width: 51, height: 51, borderRadius: 26, backgroundColor: "#EFE5DE", alignItems: "center", justifyContent: "center" }, avatarText: { color: colors.primary, fontSize: 19, fontWeight: "800" }, panditCopy: { flex: 1, marginLeft: 12 }, nameRow: { flexDirection: "row", alignItems: "center" }, panditName: { color: colors.ink, fontSize: 14, fontWeight: "800", maxWidth: "88%" }, verified: { width: 17, height: 17, borderRadius: 9, backgroundColor: colors.greenSoft, color: colors.green, fontSize: 8, fontWeight: "800", textAlign: "center", textAlignVertical: "center", marginLeft: 6 }, panditMeta: { color: colors.muted, fontSize: 9, marginTop: 3 }, rating: { color: "#A46C2C", fontSize: 9, fontWeight: "800", marginTop: 4 }, actionRow: { flexDirection: "row", gap: 9, marginTop: 14 }, secondaryButton: { flex: 1, height: 42, borderRadius: 11, borderWidth: 1, borderColor: "#E2D7CE", backgroundColor: "#FAF8F5", flexDirection: "row", alignItems: "center", justifyContent: "center" }, secondaryMark: { color: "#A39489", fontSize: 7, fontWeight: "800", marginRight: 7 }, secondaryText: { color: "#5D534C", fontSize: 10, fontWeight: "800" },
+  detailsCard: { backgroundColor: "#FFFFFF", borderRadius: 17, borderWidth: 1, borderColor: "#E7DDD4", padding: 15 }, ceremonyHeader: { flexDirection: "row", alignItems: "center" }, omBox: { width: 42, height: 42, borderRadius: 11, backgroundColor: "#F1E7E1", alignItems: "center", justifyContent: "center" }, om: { color: colors.primary, fontSize: 20 }, ceremonyCopy: { flex: 1, marginLeft: 11 }, detailHint: { color: colors.muted, fontSize: 7, fontWeight: "800", letterSpacing: 0.8 }, ceremonyName: { color: colors.ink, fontSize: 13, fontWeight: "800", marginTop: 3 }, status: { backgroundColor: colors.greenSoft, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 5 }, statusText: { color: colors.green, fontSize: 8, fontWeight: "800" }, rule: { height: 1, backgroundColor: "#EFE7E0", marginVertical: 13 }, detailRow: { minHeight: 42, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#F1EBE6" }, lastDetail: { borderBottomWidth: 0 }, index: { width: 22, height: 22, borderRadius: 7, backgroundColor: "#F3EEE9", alignItems: "center", justifyContent: "center" }, indexText: { color: "#9B8F86", fontSize: 7, fontWeight: "800" }, detailLabel: { width: 64, color: colors.muted, fontSize: 9, fontWeight: "700", marginLeft: 9 }, detailValue: { flex: 1, color: "#4E4640", fontSize: 10, lineHeight: 15, fontWeight: "700", textAlign: "right" },
+  reminder: { flexDirection: "row", alignItems: "center", backgroundColor: "#F0EDEA", borderRadius: 12, padding: 12, marginTop: 14 }, reminderMark: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: "#A99B90", color: "#81746B", textAlign: "center", textAlignVertical: "center", fontSize: 9, fontWeight: "800" }, reminderCopy: { flex: 1, marginLeft: 10 }, reminderTitle: { color: "#5E554F", fontSize: 9, fontWeight: "800" }, reminderText: { color: colors.muted, fontSize: 8, lineHeight: 13, marginTop: 2 }, homeButton: { height: 51, borderRadius: 12, backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 20 }, homeText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" }, homeArrow: { color: "#FFFFFF", fontSize: 22, marginLeft: 9, marginTop: -2 },
 });
