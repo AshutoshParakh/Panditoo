@@ -6,6 +6,7 @@ const {
 const { lockPanditCalendar } = require("../utils/calendar");
 const crypto = require("crypto");
 const { sendOTP } = require("../utils/otpService");
+const { getBookingConfig, getPriceQuote } = require("../services/pricingService");
 
 const serviceOtpHash = (bookingId, phase, otp) =>
   crypto.createHash("sha256").update(`${bookingId}:${phase}:${otp}`).digest("hex");
@@ -65,6 +66,7 @@ const createBooking = async (req, res, next) => {
       booking_time,
       address,
       selected_pandit_ids,
+      coupon_code,
     } = req.body;
 
     const latVal = Number(req.body.latitude);
@@ -95,6 +97,22 @@ const createBooking = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Selected pooja type is inactive" });
     }
 
+    const bookingConfig = await getBookingConfig();
+    const requestedDate = new Date(`${booking_date}T00:00:00`);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const lastDate = new Date(today); lastDate.setDate(lastDate.getDate() + bookingConfig.advance_booking_days);
+    if (Number.isNaN(requestedDate.getTime()) || requestedDate <= today || requestedDate > lastDate) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, message: `Bookings are open for the next ${bookingConfig.advance_booking_days} days` });
+    }
+    const timeMatch = String(booking_time || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    let time24 = String(booking_time || "").slice(0, 5);
+    if (timeMatch) { let hour = Number(timeMatch[1]) % 12; if (timeMatch[3].toUpperCase() === "PM") hour += 12; time24 = `${String(hour).padStart(2, "0")}:${timeMatch[2]}`; }
+    if (!bookingConfig.slots.some((slot) => slot.time_value === time24)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, message: "This time slot is closed" });
+    }
+
     // Filter pandit IDs and sanitize UUIDs
     const rawPanditIds = Array.isArray(selected_pandit_ids) ? selected_pandit_ids : [];
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -123,8 +141,9 @@ const createBooking = async (req, res, next) => {
       panditIdsToAssign = activePanditsRes.rows.map((r) => r.id);
     }
 
-    const basePrice = Number(poojaType.base_price);
-    const prepaidAmount = Number((basePrice * 0.3).toFixed(2));
+    const quote = await getPriceQuote({ poojaTypeId: pooja_type_id, bookingDate: booking_date, couponCode: coupon_code });
+    const basePrice = quote.total_price;
+    const prepaidAmount = quote.payable_now;
     const panditPayoutAmount = Number((basePrice * 0.7).toFixed(2));
 
     const bookingResult = await client.query(
@@ -144,9 +163,14 @@ const createBooking = async (req, res, next) => {
           prepaid_amount,
           prepaid_status,
           pandit_payout_amount,
-          pandit_payout_status
+          pandit_payout_status,
+          list_price,
+          discount_amount,
+          coupon_id,
+          coupon_code,
+          payment_percent
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending', $11, $12, $13, $14, $15)
         RETURNING id, user_id, pooja_type_id, status, total_price, prepaid_amount, prepaid_status, pandit_payout_amount, pandit_payout_status, created_at
       `,
       [
@@ -160,6 +184,11 @@ const createBooking = async (req, res, next) => {
         basePrice,
         prepaidAmount,
         panditPayoutAmount,
+        quote.list_price,
+        quote.discount_amount,
+        quote.coupon?.id || null,
+        quote.coupon?.code || null,
+        quote.payment_percent,
       ]
     );
 
@@ -184,6 +213,9 @@ const createBooking = async (req, res, next) => {
       prepayment: {
         total_price: basePrice,
         prepaid_amount: prepaidAmount,
+        list_price: quote.list_price,
+        discount_amount: quote.discount_amount,
+        payment_percent: quote.payment_percent,
         pandit_payout_amount: panditPayoutAmount,
         currency: process.env.RAZORPAY_CURRENCY || "INR",
       },

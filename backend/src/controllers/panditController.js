@@ -54,15 +54,18 @@ const listPanditRequests = async (req, res, next) => {
         b.address,
         b.total_price,
         b.pandit_payout_amount,
+        u.name AS user_name,
         pt.name_en AS pooja_name_en,
         pt.name_hi AS pooja_name_hi,
         pt.samagri_list,
         p.latitude AS pandit_latitude,
-        p.longitude AS pandit_longitude
+        p.longitude AS pandit_longitude,
+        p.service_radius_km
       FROM booking_requests br
       INNER JOIN bookings b ON b.id = br.booking_id
       INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
       INNER JOIN pandits p ON p.id = br.pandit_id
+      INNER JOIN users u ON u.id = b.user_id
       WHERE br.pandit_id = $1
         AND br.status = $2
         AND br.batch_number = b.current_batch
@@ -74,12 +77,12 @@ const listPanditRequests = async (req, res, next) => {
     );
 
     const data = result.rows.map((row) => {
-      let distanceKm = 0;
+      let distanceKm = null;
       if (
-        row.booking_latitude &&
-        row.booking_longitude &&
-        row.pandit_latitude &&
-        row.pandit_longitude
+        row.booking_latitude != null &&
+        row.booking_longitude != null &&
+        row.pandit_latitude != null &&
+        row.pandit_longitude != null
       ) {
         try {
           distanceKm = haversineDistanceKm(
@@ -93,6 +96,8 @@ const listPanditRequests = async (req, res, next) => {
         }
       }
 
+      if (distanceKm == null || distanceKm > Number(row.service_radius_km || 0)) return null;
+
       return {
         request_id: row.request_id,
         booking_id: row.booking_id,
@@ -103,10 +108,11 @@ const listPanditRequests = async (req, res, next) => {
         address: row.address,
         total_price: row.total_price,
         pandit_payout_amount: row.pandit_payout_amount,
+        user_name: row.user_name,
         samagri_list: row.samagri_list,
         distance_km: Number(distanceKm.toFixed(1)),
       };
-    });
+    }).filter(Boolean);
 
     return res.status(200).json({
       success: true,

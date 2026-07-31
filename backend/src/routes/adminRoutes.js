@@ -28,10 +28,22 @@ const {
 } = require("../validations/poojaTypeValidation");
 
 const router = express.Router();
+const pricingAdmin = require("../controllers/pricingAdminController");
 
 router.use(authenticateAdmin);
 
 router.get("/dashboard-stats", getDashboardStats);
+router.get("/pricing-control", pricingAdmin.getPricingControl);
+router.put("/pricing-control/settings", pricingAdmin.updateSettings);
+router.post("/pricing-control/slots", pricingAdmin.saveSlot);
+router.put("/pricing-control/slots/:id", pricingAdmin.saveSlot);
+router.patch("/pricing-control/slots/:id", pricingAdmin.toggleSlot);
+router.post("/pricing-control/rules", pricingAdmin.saveRule);
+router.put("/pricing-control/rules/:id", pricingAdmin.saveRule);
+router.patch("/pricing-control/rules/:id", pricingAdmin.toggleRule);
+router.post("/pricing-control/coupons", pricingAdmin.saveCoupon);
+router.put("/pricing-control/coupons/:id", pricingAdmin.saveCoupon);
+router.patch("/pricing-control/coupons/:id", pricingAdmin.toggleCoupon);
 
 router.get("/bookings", listAdminBookings);
 router.get("/bookings/:id/timeline", getAdminBookingTimeline);

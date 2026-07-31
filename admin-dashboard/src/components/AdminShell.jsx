@@ -35,6 +35,7 @@ const menuItems = [
   { key: "/users", icon: <UserOutlined />, label: <NavLink to="/users">Users</NavLink> },
   { key: "/pooja-types", icon: <ReadOutlined />, label: <NavLink to="/pooja-types">Pooja Types</NavLink> },
   { key: "/payments", icon: <CreditCardOutlined />, label: <NavLink to="/payments">Payments</NavLink> },
+  { key: "/pricing-control", icon: <CalendarOutlined />, label: <NavLink to="/pricing-control">Pricing Control</NavLink> },
   { key: "/reports", icon: <BookOutlined />, label: <NavLink to="/reports">Reports</NavLink> },
 ];
 
@@ -45,6 +46,7 @@ const routeTitleMap = {
   "/users": "Users",
   "/pooja-types": "Pooja Types",
   "/payments": "Payments",
+  "/pricing-control": "Pricing Control",
   "/reports": "Reports",
 };
 

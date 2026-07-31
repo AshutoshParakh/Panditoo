@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -35,15 +36,22 @@ export default function ConfirmBookingScreen({ route, navigation }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [draftBooking, setDraftBooking] = useState(existingBooking || null);
+  const [couponCode, setCouponCode] = useState("");
+  const [quote, setQuote] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Get total price and calculate prepayment
-  const totalPrice = Number(pooja?.base_price || 0);
-  const prepaidAmount = Number((totalPrice * 0.3).toFixed(2));
-  const remainingAmount = Number((totalPrice * 0.7).toFixed(2));
+  const totalPrice = Number(quote?.total_price ?? pooja?.base_price ?? 0);
+  const prepaidAmount = Number(quote?.payable_now ?? (totalPrice * 0.3).toFixed(2));
+  const remainingAmount = Number(quote?.remaining_amount ?? (totalPrice * 0.7).toFixed(2));
+  const paymentPercent = Number(quote?.payment_percent || 30);
 
   useEffect(() => {
     AsyncStorage.getItem("user-app-token").then(setToken).catch(() => {});
+    fetch(`${API_URL}/pricing/quote`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate}) }).then(r=>r.json()).then(j=>{if(j.success)setQuote(j.data);}).catch(()=>{});
   }, []);
+
+  const applyCoupon = async () => { try { setCouponLoading(true); setPaymentError(""); const response=await fetch(`${API_URL}/pricing/quote`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate,coupon_code:couponCode.trim()})});const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message||"Invalid coupon");setQuote(payload.data);} catch(error){setPaymentError(error.message);} finally{setCouponLoading(false);} };
 
   const handlePayAndConfirm = async () => {
     setLoading(true);
@@ -73,6 +81,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
             latitude,
             longitude,
             selected_pandit_ids: selectedPanditIds,
+            coupon_code: quote?.coupon?.code || undefined,
           }),
         });
 
@@ -283,11 +292,13 @@ export default function ConfirmBookingScreen({ route, navigation }) {
         </View>
 
         <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>{hindi ? "भुगतान सारांश" : "Payment summary"}</Text><Text style={styles.sectionSubtitle}>{hindi ? "स्पष्ट और सुरक्षित भुगतान" : "Simple, transparent and secure"}</Text></View></View>
+        <View style={styles.couponCard}><Text style={styles.couponTitle}>Have a coupon?</Text><View style={styles.couponRow}><TextInput value={couponCode} onChangeText={(value)=>setCouponCode(value.toUpperCase())} autoCapitalize="characters" placeholder="ENTER CODE" style={styles.couponInput}/><TouchableOpacity disabled={!couponCode.trim()||couponLoading} onPress={applyCoupon} style={styles.couponButton}>{couponLoading?<ActivityIndicator color="#FFF"/>:<Text style={styles.couponButtonText}>Apply</Text>}</TouchableOpacity></View>{quote?.coupon?<Text style={styles.couponSuccess}>✓ {quote.coupon.code} applied · You save {formatMoney(quote.discount_amount)}</Text>:null}</View>
         <View style={styles.paymentCard}>
-          <View style={styles.priceRow}><Text style={styles.priceLabel}>{hindi ? "कुल पूजा शुल्क" : "Total ceremony fee"}</Text><Text style={styles.priceVal}>{formatMoney(totalPrice)}</Text></View>
+          {quote?.festival_title?<Text style={styles.festivalBadge}>{quote.festival_title} special pricing</Text>:null}
+          <View style={styles.priceRow}><Text style={styles.priceLabel}>{hindi ? "कुल पूजा शुल्क" : "Total ceremony fee"}</Text><View style={{alignItems:"flex-end"}}>{quote?.list_price>totalPrice?<Text style={styles.listPrice}>{formatMoney(quote.list_price)}</Text>:null}<Text style={styles.priceVal}>{formatMoney(totalPrice)}</Text></View></View>
           <View style={styles.paymentRule} />
           <View style={styles.payNowRow}>
-            <View style={styles.payNowCopy}><View style={styles.prepaidTitleRow}><Text style={styles.prepaidLabel}>{hindi ? "अभी भुगतान करें" : "Pay now"}</Text><View style={styles.percentBadge}><Text style={styles.percentText}>30%</Text></View></View><Text style={styles.prepaidNote}>{hindi ? "आपकी बुकिंग सुरक्षित करने के लिए" : "To secure your booking"}</Text></View>
+            <View style={styles.payNowCopy}><View style={styles.prepaidTitleRow}><Text style={styles.prepaidLabel}>{hindi ? "अभी भुगतान करें" : "Pay now"}</Text><View style={styles.percentBadge}><Text style={styles.percentText}>{paymentPercent}%</Text></View></View><Text style={styles.prepaidNote}>{paymentPercent===100?"Full payment required for this date":(hindi ? "आपकी बुकिंग सुरक्षित करने के लिए" : "To secure your booking")}</Text></View>
             <Text style={styles.prepaidVal}>{formatMoney(prepaidAmount)}</Text>
           </View>
           <TouchableOpacity style={styles.balanceRow} activeOpacity={0.75} onPress={() => setShowTooltip((value) => !value)}>
@@ -327,4 +338,5 @@ const styles = StyleSheet.create({
   secureRow: { marginTop: 15, flexDirection: "row", alignItems: "center" }, secureIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }, secureIconText: { color: colors.green, fontWeight: "800", fontSize: 11 }, secureCopy: { flex: 1, marginLeft: 10 }, secureTitle: { color: "#365E4B", fontSize: 10, fontWeight: "800" }, secureText: { color: "#73847B", fontSize: 8, marginTop: 2 },
   errorBox: { backgroundColor: "#FBEDEC", borderWidth: 1, borderColor: "#F1CDCA", borderRadius: 12, padding: 13, marginTop: 14 }, errorTitle: { color: "#993F3F", fontSize: 11, fontWeight: "800" }, errorText: { color: "#A65A57", fontSize: 9, lineHeight: 14, marginTop: 3 }, terms: { color: colors.muted, fontSize: 9, lineHeight: 14, textAlign: "center", marginTop: 18, paddingHorizontal: 22 }, scrollSpacer: { height: 100 },
   footer: { position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 78, backgroundColor: "#FFFFFF", borderTopWidth: 1, borderTopColor: "#E6DCD3", paddingHorizontal: 18, paddingVertical: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...shadow }, footerLabel: { color: colors.muted, fontSize: 8, fontWeight: "800", letterSpacing: 1 }, footerPrice: { color: colors.ink, fontSize: 20, fontWeight: "800", marginTop: 2 }, payBtn: { minWidth: 190, height: 50, borderRadius: 12, backgroundColor: colors.primary, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center" }, payBtnDisabled: { opacity: 0.7 }, payBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" }, payArrow: { color: "#FFFFFF", fontSize: 23, marginLeft: 10, marginTop: -2 },
+  couponCard:{backgroundColor:"#FFF",borderWidth:1,borderColor:"#E8DED5",borderRadius:16,padding:14,marginBottom:10},couponTitle:{fontSize:11,fontWeight:"800",color:colors.ink},couponRow:{flexDirection:"row",gap:8,marginTop:9},couponInput:{flex:1,height:44,borderWidth:1,borderColor:"#DCCFC5",borderRadius:10,paddingHorizontal:12,fontWeight:"800",letterSpacing:1,color:colors.ink},couponButton:{width:88,height:44,borderRadius:10,backgroundColor:colors.primary,alignItems:"center",justifyContent:"center"},couponButtonText:{color:"#FFF",fontWeight:"800"},couponSuccess:{color:colors.green,fontSize:10,fontWeight:"800",marginTop:9},festivalBadge:{alignSelf:"flex-start",backgroundColor:"#FFF0CE",color:"#8B5D12",fontSize:9,fontWeight:"900",paddingHorizontal:9,paddingVertical:5,borderRadius:8,marginBottom:12},listPrice:{fontSize:11,color:colors.muted,textDecorationLine:"line-through"},
 });

@@ -8,6 +8,7 @@ const createBookingSchema = Joi.object({
   latitude: Joi.number().allow(null, "").optional(),
   longitude: Joi.number().allow(null, "").optional(),
   selected_pandit_ids: Joi.array().items(Joi.string()).optional(),
+  coupon_code: Joi.string().trim().max(40).allow("").optional(),
 });
 
 const panditResponseSchema = Joi.object({

@@ -20,6 +20,7 @@ import EarningsScreen from "./src/screens/EarningsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import BookingWonScreen from "./src/screens/BookingWonScreen";
 import BookingDetailScreen from "./src/screens/BookingDetailScreen";
+import RequestDetailScreen from "./src/screens/RequestDetailScreen";
 
 
 const Stack = createNativeStackNavigator();
@@ -186,6 +187,11 @@ function AppNavigator() {
               name="BookingWon"
               component={BookingWonScreen}
               options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="RequestDetail"
+              component={RequestDetailScreen}
+              options={{ title: "Pooja Request", headerBackTitleVisible: false }}
             />
             <Stack.Screen
               name="BookingDetail"

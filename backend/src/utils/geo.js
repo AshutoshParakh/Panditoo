@@ -69,7 +69,9 @@ const findPanditsWithinRadius = async (userLat, userLng, radiusKm) => {
       WHERE latitude IS NOT NULL
         AND longitude IS NOT NULL
         AND is_active = TRUE
+        AND is_verified = TRUE
         AND ${distanceSql} <= $3
+        AND ${distanceSql} <= service_radius_km
       ORDER BY rating DESC, distance_km ASC
     `,
     [latitude, longitude, radius]
@@ -111,7 +113,9 @@ const getNextBatch = async (userLat, userLng, radiusKm, excludePanditIds = [], b
       WHERE latitude IS NOT NULL
         AND longitude IS NOT NULL
         AND is_active = TRUE
+        AND is_verified = TRUE
         AND ${distanceSql} <= $3
+        AND ${distanceSql} <= service_radius_km
         AND NOT (id = ANY($4::uuid[]))
       ORDER BY rating DESC, distance_km ASC
       LIMIT $5

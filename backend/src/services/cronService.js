@@ -89,7 +89,7 @@ const runBatchTimeoutJob = async () => {
             booking.longitude,
             nextRadiusKm,
             excludedPanditIds,
-            10
+            10000
           );
 
           if (nextPandits.length > 0) {

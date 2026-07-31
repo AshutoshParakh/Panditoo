@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
@@ -13,6 +13,7 @@ const TIME_SLOTS = [
   { value: "03:00 PM", label: "03:00", period: "PM" },
   { value: "05:00 PM", label: "05:00", period: "PM" },
 ];
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
 const toDateString = (date) => {
   const year = date.getFullYear();
@@ -28,6 +29,10 @@ export default function SelectDateTimeScreen({ route, navigation }) {
   const tomorrow = useMemo(() => { const date = new Date(); date.setDate(date.getDate() + 1); return toDateString(date); }, []);
   const [selectedDate, setSelectedDate] = useState(tomorrow);
   const [selectedTime, setSelectedTime] = useState(TIME_SLOTS[1].value);
+  const [slots, setSlots] = useState(TIME_SLOTS);
+  const [advanceDays, setAdvanceDays] = useState(30);
+  useEffect(() => { fetch(`${API_URL}/booking-config`).then((r) => r.json()).then((json) => { if (!json.success) return; setAdvanceDays(json.data.advance_booking_days || 30); const next=(json.data.slots||[]).map((slot)=>{const [h,m]=slot.time_value.split(":").map(Number);const period=h>=12?"PM":"AM";return {value:`${String(h%12||12).padStart(2,"0")}:${String(m).padStart(2,"0")} ${period}`,label:`${String(h%12||12).padStart(2,"0")}:${String(m).padStart(2,"0")}`,period};});if(next.length){setSlots(next);setSelectedTime(next[0].value);}}).catch(()=>{}); }, []);
+  const maxDate = useMemo(() => { const date=new Date(); date.setDate(date.getDate()+advanceDays); return toDateString(date); }, [advanceDays]);
 
   const displayDate = useMemo(() => {
     const [year, month, day] = selectedDate.split("-").map(Number);
@@ -46,6 +51,7 @@ export default function SelectDateTimeScreen({ route, navigation }) {
           <Calendar
             current={selectedDate}
             minDate={tomorrow}
+            maxDate={maxDate}
             firstDay={1}
             hideExtraDays
             enableSwipeMonths
@@ -63,9 +69,9 @@ export default function SelectDateTimeScreen({ route, navigation }) {
 
         <View style={s.sectionHeader}><View style={s.sectionNumber}><Text style={s.sectionNumberText}>02</Text></View><View><Text style={s.sectionTitle}>{hindi ? "आगमन का समय" : "Select arrival time"}</Text><Text style={s.sectionHint}>{hindi ? "पंडित जी के पहुंचने का समय" : "When the pandit should arrive"}</Text></View></View>
         <View style={s.periodLabel}><Text style={s.periodText}>{hindi ? "सुबह" : "MORNING"}</Text><View style={s.periodLine} /></View>
-        <View style={s.slots}>{TIME_SLOTS.slice(0, 3).map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
+        <View style={s.slots}>{slots.filter((slot)=>slot.period==="AM").map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
         <View style={s.periodLabel}><Text style={s.periodText}>{hindi ? "दोपहर और शाम" : "AFTERNOON & EVENING"}</Text><View style={s.periodLine} /></View>
-        <View style={s.slots}>{TIME_SLOTS.slice(3).map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
+        <View style={s.slots}>{slots.filter((slot)=>slot.period==="PM").map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
 
         <View style={s.note}><View style={s.noteMark}><Text style={s.noteMarkText}>i</Text></View><Text style={s.noteText}>{hindi ? "अंतिम समय पंडित जी की उपलब्धता के अनुसार पुष्टि किया जाएगा।" : "Final timing is confirmed based on the selected pandit’s availability."}</Text></View>
         <View style={s.spacer} />
