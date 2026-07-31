@@ -14,8 +14,8 @@ const getPriceQuote = async ({ poojaTypeId, bookingDate, couponCode }) => {
   const pooja = poojaResult.rows[0];
   const ruleResult = await query(
     `SELECT id, title, sale_price, list_price, payment_percent FROM date_pricing_rules
-     WHERE pricing_date = $1 AND is_active = TRUE AND (pooja_type_id = $2 OR pooja_type_id IS NULL)
-     ORDER BY pooja_type_id NULLS LAST LIMIT 1`, [bookingDate, poojaTypeId]
+     WHERE $1::date BETWEEN pricing_date AND pricing_end_date AND is_active = TRUE AND (pooja_type_id = $2 OR pooja_type_id IS NULL)
+     ORDER BY (pooja_type_id IS NOT NULL) DESC, pricing_date DESC LIMIT 1`, [bookingDate, poojaTypeId]
   );
   const rule = ruleResult.rows[0];
   const salePrice = Number(rule?.sale_price ?? pooja.base_price);
