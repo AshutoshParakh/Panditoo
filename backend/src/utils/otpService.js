@@ -1,5 +1,7 @@
-const sendOTP = async (phone, otp) => {
-  const provider = process.env.OTP_PROVIDER || "mock";
+const sendOTP = async (phone, otp, options = {}) => {
+  const provider = process.env.OTP_PROVIDER;
+  const purpose = options.purpose || "verification";
+  const message = options.message || `Your OTP for Pandit Booking is ${otp}. It is valid for 5 minutes.`;
 
   // Normalize and format to E.164 format (e.g. +919999999999) for AWS SNS and Twilio
   let formattedPhone = String(phone || "").trim();
@@ -13,11 +15,14 @@ const sendOTP = async (phone, otp) => {
     }
   }
 
-  console.log("\n========================================================");
-  console.log(`🔑 [OTP:${provider.toUpperCase()}] OTP: ${otp}  -->  Sent to: ${formattedPhone}`);
-  console.log("========================================================\n");
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[OTP:${String(provider || "NOT_CONFIGURED").toUpperCase()}] Purpose: ${purpose} | OTP: ${otp} | Customer: ${formattedPhone}`);
+  }
 
   if (provider === "mock") {
+    if (process.env.NODE_ENV === "production") {
+      return { success: false, error: "Mock OTP provider is disabled in production" };
+    }
     return { success: true, provider };
   }
 
@@ -36,7 +41,7 @@ const sendOTP = async (phone, otp) => {
       const body = new URLSearchParams({
         To: formattedPhone,
         MessagingServiceSid: messagingServiceSid,
-        Body: `Your OTP for Pandit Booking is ${otp}. It is valid for 5 minutes.`,
+        Body: message,
       });
 
       const response = await fetch(
@@ -86,7 +91,7 @@ const sendOTP = async (phone, otp) => {
       });
 
       const command = new PublishCommand({
-        Message: `Your OTP for Pandit Booking is ${otp}. It is valid for 5 minutes.`,
+        Message: message,
         PhoneNumber: formattedPhone,
         MessageAttributes: {
           "AWS.SNS.SMS.SMSType": {

@@ -479,13 +479,25 @@ const sendServiceOtp = (phase) => async (req, res, next) => {
     if (phase === "start" && booking.service_started_at) return res.status(400).json({ success: false, message: "Pooja has already started" });
     if (phase === "end" && !booking.service_started_at) return res.status(400).json({ success: false, message: "Start the pooja first" });
     const otp = generateServiceOtp();
+    const action = phase === "start" ? "start" : "complete";
+    const otpMessage = `Your OTP to ${action} Panditoo booking ${bookingId} is ${otp}. Share it only with your pandit. Valid for 5 minutes.`;
     await query(
       `UPDATE bookings SET ${phase}_otp_hash = $1, ${phase}_otp_expires_at = NOW() + INTERVAL '5 minutes', updated_at = NOW() WHERE id = $2`,
       [serviceOtpHash(bookingId, phase, otp), bookingId]
     );
-    const delivery = await sendOTP(booking.phone, otp);
-    if (!delivery.success) return res.status(502).json({ success: false, message: "Could not send OTP" });
-    return res.json({ success: true, message: `${phase}_otp_sent`, expiresInMinutes: 5, ...(process.env.NODE_ENV !== "production" ? { debugOtp: otp } : {}) });
+    const delivery = await sendOTP(booking.phone, otp, {
+      purpose: `service_${phase} booking=${bookingId}`,
+      message: otpMessage,
+    });
+    if (!delivery.success) {
+      await query(
+        `UPDATE bookings SET ${phase}_otp_hash = NULL, ${phase}_otp_expires_at = NULL, updated_at = NOW() WHERE id = $1`,
+        [bookingId]
+      );
+      return res.status(502).json({ success: false, message: "Could not send OTP to the customer" });
+    }
+    console.log(`[SERVICE OTP] ${phase.toUpperCase()} OTP sent | booking=${bookingId} | customer=${booking.phone} | provider=${delivery.provider}`);
+    return res.json({ success: true, message: `${phase}_otp_sent`, expiresInMinutes: 5 });
   } catch (error) { return next(error); }
 };
 
@@ -501,6 +513,7 @@ const verifyStartServiceOtp = async (req, res, next) => {
       [req.params.bookingId, req.pandit.id, serviceOtpHash(req.params.bookingId, "start", otp)]
     );
     if (!result.rowCount) return res.status(400).json({ success: false, message: "Invalid or expired start OTP" });
+    console.log(`[SERVICE] STARTED | booking=${req.params.bookingId} | pandit=${req.pandit.id} | startedAt=${result.rows[0].service_started_at.toISOString()}`);
     return res.json({ success: true, message: "pooja_started", service_started_at: result.rows[0].service_started_at });
   } catch (error) { return next(error); }
 };
@@ -526,6 +539,7 @@ const verifyEndServiceOtp = async (req, res, next) => {
       [req.params.bookingId, result.rows[0].pandit_payout_amount]
     );
     await client.query("COMMIT");
+    console.log(`[SERVICE] COMPLETED | booking=${req.params.bookingId} | pandit=${req.pandit.id} | completedAt=${result.rows[0].service_completed_at.toISOString()}`);
     return res.json({ success: true, message: "booking_completed", service_started_at: result.rows[0].service_started_at, service_completed_at: result.rows[0].service_completed_at });
   } catch (error) { try { await client.query("ROLLBACK"); } catch {} return next(error); }
   finally { client.release(); }

@@ -31,6 +31,10 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/pandit_booking
       CORS_ORIGIN: http://localhost:5173
+      OTP_PROVIDER: ${OTP_PROVIDER:-msg91}
+      MSG91_AUTH_KEY: ${MSG91_AUTH_KEY:-}
+      MSG91_TEMPLATE_ID: ${MSG91_TEMPLATE_ID:-}
+      MSG91_SENDER_ID: ${MSG91_SENDER_ID:-}
     ports:
       - "4000:4000"
     volumes:

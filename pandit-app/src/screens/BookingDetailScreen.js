@@ -78,7 +78,7 @@ export default function BookingDetailScreen({ route, navigation }) {
       const response = await fetch(`${API_URL}/bookings/${bookingId}/service/${phase}-otp`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.message || "Could not send OTP");
-      setServiceOtp(payload.debugOtp || "");
+      setServiceOtp("");
       setOtpPhase(phase);
     } catch (error) { Alert.alert("OTP not sent", error.message); }
     finally { setOtpLoading(false); }
