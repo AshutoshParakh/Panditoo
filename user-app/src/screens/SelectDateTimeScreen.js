@@ -26,14 +26,16 @@ export default function SelectDateTimeScreen({ route, navigation }) {
   const { i18n } = useTranslation();
   const hindi = i18n.language === "hi";
   const { pooja } = route.params || {};
-  const tomorrow = useMemo(() => { const date = new Date(); date.setDate(date.getDate() + 1); return toDateString(date); }, []);
-  const [selectedDate, setSelectedDate] = useState(tomorrow);
+  const today = useMemo(() => toDateString(new Date()), []);
+  const [selectedDate, setSelectedDate] = useState(today);
   const [selectedTime, setSelectedTime] = useState(TIME_SLOTS[1].value);
   const [slots, setSlots] = useState(TIME_SLOTS);
   const [advanceDays, setAdvanceDays] = useState(30);
   const [dateQuote, setDateQuote] = useState(null);
   useEffect(() => { fetch(`${API_URL}/booking-config`).then((r) => r.json()).then((json) => { if (!json.success) return; setAdvanceDays(json.data.advance_booking_days || 30); const next=(json.data.slots||[]).map((slot)=>{const [h,m]=slot.time_value.split(":").map(Number);const period=h>=12?"PM":"AM";return {value:`${String(h%12||12).padStart(2,"0")}:${String(m).padStart(2,"0")} ${period}`,label:`${String(h%12||12).padStart(2,"0")}:${String(m).padStart(2,"0")}`,period};});if(next.length){setSlots(next);setSelectedTime(next[0].value);}}).catch(()=>{}); }, []);
   const maxDate = useMemo(() => { const date=new Date(); date.setDate(date.getDate()+advanceDays); return toDateString(date); }, [advanceDays]);
+  const availableSlots = useMemo(() => selectedDate !== today ? slots : slots.filter((slot) => { const match=slot.value.match(/(\d+):(\d+)\s+(AM|PM)/);if(!match)return true;let hour=Number(match[1])%12;if(match[3]==="PM")hour+=12;const now=new Date();return hour*60+Number(match[2])>now.getHours()*60+now.getMinutes(); }), [selectedDate, slots, today]);
+  useEffect(() => { if (availableSlots.length && !availableSlots.some((slot)=>slot.value===selectedTime)) setSelectedTime(availableSlots[0].value); }, [availableSlots, selectedTime]);
   useEffect(() => { let active=true; fetch(`${API_URL}/pricing/quote`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:selectedDate})}).then(r=>r.json()).then(json=>{if(active)setDateQuote(json.success?json.data:null);}).catch(()=>{if(active)setDateQuote(null);});return()=>{active=false;}; }, [pooja?.id, selectedDate]);
 
   const displayDate = useMemo(() => {
@@ -41,18 +43,18 @@ export default function SelectDateTimeScreen({ route, navigation }) {
     return new Date(year, month - 1, day).toLocaleDateString(hindi ? "hi-IN" : "en-IN", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
   }, [hindi, selectedDate]);
 
-  const handleContinue = () => navigation.navigate("SelectLocation", { pooja, bookingDate: selectedDate, bookingTime: selectedTime });
+  const handleContinue = () => { if (!availableSlots.length) return; navigation.navigate("SelectLocation", { pooja, bookingDate: selectedDate, bookingTime: selectedTime }); };
 
   return (
     <SafeAreaView style={s.screen}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
         <View style={s.intro}><Text style={s.eyebrow}>{hindi ? "बुकिंग विवरण" : "BOOKING DETAILS"}</Text><Text style={s.title}>{hindi ? "सुविधाजनक समय चुनें" : "Choose a convenient time"}</Text><Text style={s.subtitle}>{hindi ? "पूजा के लिए अपनी पसंद की तारीख और समय चुनें।" : "Select your preferred date and arrival window for the ceremony."}</Text></View>
 
-        <View style={s.sectionHeader}><View style={s.sectionNumber}><Text style={s.sectionNumberText}>01</Text></View><View><Text style={s.sectionTitle}>{hindi ? "तारीख चुनें" : "Select a date"}</Text><Text style={s.sectionHint}>{hindi ? "कल से उपलब्ध" : "Available from tomorrow"}</Text></View></View>
+        <View style={s.sectionHeader}><View style={s.sectionNumber}><Text style={s.sectionNumberText}>01</Text></View><View><Text style={s.sectionTitle}>{hindi ? "तारीख चुनें" : "Select a date"}</Text><Text style={s.sectionHint}>{hindi ? "आज से उपलब्ध" : "Available from today"}</Text></View></View>
         <View style={s.calendarCard}>
           <Calendar
             current={selectedDate}
-            minDate={tomorrow}
+            minDate={today}
             maxDate={maxDate}
             firstDay={1}
             hideExtraDays
@@ -71,11 +73,13 @@ export default function SelectDateTimeScreen({ route, navigation }) {
 
         {dateQuote?.festival_title ? <View style={s.festivalNotice}><View style={s.festivalBadge}><Text style={s.festivalBadgeText}>FESTIVAL DATE</Text></View><Text style={s.festivalTitle}>{dateQuote.festival_title}</Text><Text style={s.festivalText}>{hindi ? `आपने ${dateQuote.festival_title} की तारीख चुनी है। अधिक मांग के कारण इस दिन कीमत सामान्य दिनों से अधिक है।` : `You selected ${dateQuote.festival_title}. Due to higher demand, pricing for this date is higher than on normal days.`}</Text><View style={s.festivalPriceRow}><View><Text style={s.festivalPriceLabel}>NORMAL PRICE</Text><Text style={s.normalPrice}>₹{Number(pooja?.base_price || 0).toLocaleString("en-IN")}</Text></View><Text style={s.priceArrow}>→</Text><View><Text style={s.festivalPriceLabel}>FESTIVAL PRICE</Text><Text style={s.festivalPrice}>₹{Number(dateQuote.sale_price || dateQuote.total_price || 0).toLocaleString("en-IN")}</Text></View></View>{dateQuote.payment_percent===100?<Text style={s.fullPayment}>Full online payment is required for this festival date.</Text>:null}</View> : null}
 
+        {dateQuote?.promotional_offer ? <View style={s.offerNotice}><View style={s.offerBadge}><Text style={s.offerBadgeText}>OFFER DATE · 100% ONLINE</Text></View><Text style={s.offerTitle}>🎉 {dateQuote.promotional_offer.title}</Text><Text style={s.offerCopy}>{hindi ? "आपने ऑफर वाली तारीख चुनी है। छूट केवल इसी निर्धारित पूजा तारीख पर मिलेगी। दूसरी तारीख पर सामान्य कीमत लागू होगी।" : "You selected an offer date. This discount applies only to this configured pooja date; other dates use the normal price."}</Text><View style={s.festivalPriceRow}><View><Text style={s.festivalPriceLabel}>PRICE BEFORE OFFER</Text><Text style={s.normalPrice}>₹{Number(dateQuote.sale_price || 0).toLocaleString("en-IN")}</Text></View><Text style={s.priceArrow}>→</Text><View><Text style={s.festivalPriceLabel}>OFFER PRICE</Text><Text style={s.offerPrice}>₹{Number(dateQuote.total_price || 0).toLocaleString("en-IN")}</Text></View></View><Text style={s.offerSaving}>You save ₹{Number(dateQuote.discount_amount || 0).toLocaleString("en-IN")} · Full payment online</Text></View> : null}
+
         <View style={s.sectionHeader}><View style={s.sectionNumber}><Text style={s.sectionNumberText}>02</Text></View><View><Text style={s.sectionTitle}>{hindi ? "आगमन का समय" : "Select arrival time"}</Text><Text style={s.sectionHint}>{hindi ? "पंडित जी के पहुंचने का समय" : "When the pandit should arrive"}</Text></View></View>
         <View style={s.periodLabel}><Text style={s.periodText}>{hindi ? "सुबह" : "MORNING"}</Text><View style={s.periodLine} /></View>
-        <View style={s.slots}>{slots.filter((slot)=>slot.period==="AM").map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
+        <View style={s.slots}>{availableSlots.filter((slot)=>slot.period==="AM").map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
         <View style={s.periodLabel}><Text style={s.periodText}>{hindi ? "दोपहर और शाम" : "AFTERNOON & EVENING"}</Text><View style={s.periodLine} /></View>
-        <View style={s.slots}>{slots.filter((slot)=>slot.period==="PM").map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
+        <View style={s.slots}>{availableSlots.filter((slot)=>slot.period==="PM").map((slot) => <TimeSlot key={slot.value} slot={slot} selected={selectedTime === slot.value} onPress={() => setSelectedTime(slot.value)} />)}</View>
 
         <View style={s.note}><View style={s.noteMark}><Text style={s.noteMarkText}>i</Text></View><Text style={s.noteText}>{hindi ? "अंतिम समय पंडित जी की उपलब्धता के अनुसार पुष्टि किया जाएगा।" : "Final timing is confirmed based on the selected pandit’s availability."}</Text></View>
         <View style={s.spacer} />
@@ -83,7 +87,7 @@ export default function SelectDateTimeScreen({ route, navigation }) {
 
       <View style={s.footer}>
         <View style={s.selection}><Text style={s.selectionLabel}>{hindi ? "चुना गया समय" : "SELECTED SCHEDULE"}</Text><Text numberOfLines={1} style={s.selectionValue}>{displayDate}</Text><Text style={s.selectionTime}>{selectedTime}</Text></View>
-        <TouchableOpacity style={s.continueButton} onPress={handleContinue} activeOpacity={0.82}><Text style={s.continueText}>{hindi ? "स्थान चुनें" : "Choose location"}</Text><Text style={s.arrow}>›</Text></TouchableOpacity>
+        <TouchableOpacity disabled={!availableSlots.length} style={[s.continueButton,!availableSlots.length&&s.continueDisabled]} onPress={handleContinue} activeOpacity={0.82}><Text style={s.continueText}>{availableSlots.length?(hindi ? "स्थान चुनें" : "Choose location"):(hindi?"आज स्लॉट उपलब्ध नहीं":"No slots left today")}</Text>{availableSlots.length?<Text style={s.arrow}>›</Text>:null}</TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -97,5 +101,6 @@ const s = StyleSheet.create({
   calendarCard: { backgroundColor: "#FFFFFF", borderRadius: 17, borderWidth: 1, borderColor: "#E7DDD4", overflow: "hidden", padding: 7, ...shadow }, periodLabel: { flexDirection: "row", alignItems: "center", marginBottom: 9, marginTop: 4 }, periodText: { color: colors.muted, fontSize: 8, fontWeight: "800", letterSpacing: 1 }, periodLine: { flex: 1, height: 1, backgroundColor: "#E7DED6", marginLeft: 9 }, slots: { flexDirection: "row", gap: 9, marginBottom: 13 }, slot: { flex: 1, height: 57, borderRadius: 12, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E4D9D0", alignItems: "center", justifyContent: "center" }, slotSelected: { backgroundColor: colors.primary, borderColor: colors.primary, ...shadow }, slotTime: { color: "#4D453F", fontSize: 13, fontWeight: "800" }, slotTimeSelected: { color: "#FFFFFF" }, slotPeriod: { color: colors.muted, fontSize: 7, fontWeight: "800", marginTop: 2 }, slotPeriodSelected: { color: "#EBCFCD" }, selectedMark: { position: "absolute", top: 5, right: 6, width: 13, height: 13, borderRadius: 7, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" }, selectedMarkText: { color: "#FFFFFF", fontSize: 7, fontWeight: "800" },
   note: { flexDirection: "row", alignItems: "center", borderRadius: 11, backgroundColor: "#F0EDEA", padding: 11, marginTop: 4 }, noteMark: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: "#A99B90", alignItems: "center", justifyContent: "center" }, noteMarkText: { color: "#81746B", fontSize: 8, fontWeight: "800" }, noteText: { flex: 1, color: "#776C64", fontSize: 8, lineHeight: 13, marginLeft: 9 }, spacer: { height: 105 },
   festivalNotice:{backgroundColor:"#FFF4D8",borderWidth:1.5,borderColor:"#E4B74F",borderRadius:16,padding:15,marginTop:12},festivalBadge:{alignSelf:"flex-start",backgroundColor:"#8F3030",borderRadius:12,paddingHorizontal:9,paddingVertical:5},festivalBadgeText:{color:"#FFF",fontSize:8,fontWeight:"900",letterSpacing:1},festivalTitle:{color:"#5A350B",fontSize:17,fontWeight:"900",marginTop:10},festivalText:{color:"#765628",fontSize:10,lineHeight:16,marginTop:5},festivalPriceRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-around",backgroundColor:"#FFF",borderRadius:12,padding:11,marginTop:12},festivalPriceLabel:{color:colors.muted,fontSize:7,fontWeight:"900",letterSpacing:.7},normalPrice:{color:colors.muted,fontSize:14,fontWeight:"800",textDecorationLine:"line-through",marginTop:3},festivalPrice:{color:colors.primary,fontSize:18,fontWeight:"900",marginTop:3},priceArrow:{color:"#A77B31",fontSize:20},fullPayment:{color:"#8F3030",fontSize:10,fontWeight:"900",textAlign:"center",marginTop:11},
-  footer: { position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 83, backgroundColor: "#FFFFFF", borderTopWidth: 1, borderTopColor: "#E6DCD3", paddingHorizontal: 18, paddingVertical: 11, flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...shadow }, selection: { flex: 1, paddingRight: 8 }, selectionLabel: { color: colors.muted, fontSize: 7, fontWeight: "800", letterSpacing: 0.9 }, selectionValue: { color: colors.ink, fontSize: 10, fontWeight: "800", marginTop: 3 }, selectionTime: { color: colors.primary, fontSize: 9, fontWeight: "800", marginTop: 2 }, continueButton: { minWidth: 174, height: 50, borderRadius: 12, backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 15 }, continueText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" }, arrow: { color: "#FFFFFF", fontSize: 22, marginLeft: 8, marginTop: -2 },
+  offerNotice:{backgroundColor:"#FDE9E5",borderWidth:2,borderColor:"#A73B30",borderRadius:16,padding:15,marginTop:12},offerBadge:{alignSelf:"flex-start",backgroundColor:"#FFD76A",borderRadius:12,paddingHorizontal:9,paddingVertical:5},offerBadgeText:{color:"#6B211B",fontSize:8,fontWeight:"900",letterSpacing:.8},offerTitle:{color:"#741F18",fontSize:17,fontWeight:"900",marginTop:10},offerCopy:{color:"#75443F",fontSize:10,lineHeight:16,marginTop:5},offerPrice:{color:"#A42E25",fontSize:19,fontWeight:"900",marginTop:3},offerSaving:{color:"#741F18",fontSize:10,fontWeight:"900",textAlign:"center",marginTop:11},
+  footer: { position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 83, backgroundColor: "#FFFFFF", borderTopWidth: 1, borderTopColor: "#E6DCD3", paddingHorizontal: 18, paddingVertical: 11, flexDirection: "row", alignItems: "center", justifyContent: "space-between", ...shadow }, selection: { flex: 1, paddingRight: 8 }, selectionLabel: { color: colors.muted, fontSize: 7, fontWeight: "800", letterSpacing: 0.9 }, selectionValue: { color: colors.ink, fontSize: 10, fontWeight: "800", marginTop: 3 }, selectionTime: { color: colors.primary, fontSize: 9, fontWeight: "800", marginTop: 2 }, continueButton: { minWidth: 174, height: 50, borderRadius: 12, backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 15 }, continueDisabled:{opacity:.45},continueText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" }, arrow: { color: "#FFFFFF", fontSize: 22, marginLeft: 8, marginTop: -2 },
 });

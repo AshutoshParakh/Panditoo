@@ -23,10 +23,10 @@ const getPriceQuote = async ({ poojaTypeId, bookingDate, couponCode }) => {
   let paymentPercent = Number(rule?.payment_percent || 30);
   const offerResult = await query(
     `SELECT o.* FROM promotional_offers o
-     WHERE o.is_active=TRUE AND NOW() BETWEEN o.starts_at AND o.ends_at
+     WHERE o.is_active=TRUE AND $2::date BETWEEN o.starts_at::date AND o.ends_at::date
        AND (o.usage_limit IS NULL OR o.used_count < o.usage_limit)
        AND (o.applies_to_all=TRUE OR EXISTS (SELECT 1 FROM promotional_offer_poojas op WHERE op.offer_id=o.id AND op.pooja_type_id=$1))
-     ORDER BY o.created_at DESC LIMIT 1`, [poojaTypeId]
+     ORDER BY o.created_at DESC LIMIT 1`, [poojaTypeId, bookingDate]
   );
   const offer = offerResult.rows[0] || null;
   let coupon = null;

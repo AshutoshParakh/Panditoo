@@ -101,7 +101,7 @@ const createBooking = async (req, res, next) => {
     const requestedDate = new Date(`${booking_date}T00:00:00`);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const lastDate = new Date(today); lastDate.setDate(lastDate.getDate() + bookingConfig.advance_booking_days);
-    if (Number.isNaN(requestedDate.getTime()) || requestedDate <= today || requestedDate > lastDate) {
+    if (Number.isNaN(requestedDate.getTime()) || requestedDate < today || requestedDate > lastDate) {
       await client.query("ROLLBACK");
       return res.status(400).json({ success: false, message: `Bookings are open for the next ${bookingConfig.advance_booking_days} days` });
     }
@@ -111,6 +111,10 @@ const createBooking = async (req, res, next) => {
     if (!bookingConfig.slots.some((slot) => slot.time_value === time24)) {
       await client.query("ROLLBACK");
       return res.status(400).json({ success: false, message: "This time slot is closed" });
+    }
+    if (new Date(`${booking_date}T${time24}:00+05:30`).getTime() <= Date.now()) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, message: "Please select a future time slot" });
     }
 
     // Filter pandit IDs and sanitize UUIDs
