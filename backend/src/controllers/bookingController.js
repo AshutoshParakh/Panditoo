@@ -437,7 +437,8 @@ const handlePanditBookingResponse = async (req, res, next) => {
 
     const requestResult = await client.query(
       `
-        SELECT br.id, br.status, br.booking_id, b.booking_date, b.booking_time, b.prepaid_status, pt.credit_cost
+        SELECT br.id, br.status, br.booking_id, b.booking_date, b.booking_time, b.prepaid_status,
+               effective_pooja_credit_cost(pt.id,b.booking_date) AS credit_cost
         FROM booking_requests br
         INNER JOIN bookings b ON b.id = br.booking_id
         INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id

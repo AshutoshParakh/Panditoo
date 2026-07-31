@@ -57,7 +57,7 @@ const listPanditRequests = async (req, res, next) => {
         u.name AS user_name,
         pt.name_en AS pooja_name_en,
         pt.name_hi AS pooja_name_hi,
-        pt.credit_cost,
+        effective_pooja_credit_cost(pt.id,b.booking_date) AS credit_cost,
         pt.samagri_list,
         p.latitude AS pandit_latitude,
         p.longitude AS pandit_longitude,
@@ -110,6 +110,7 @@ const listPanditRequests = async (req, res, next) => {
         total_price: row.total_price,
         pandit_payout_amount: row.pandit_payout_amount,
         user_name: row.user_name,
+        credit_cost: Number(row.credit_cost || 10),
         samagri_list: row.samagri_list,
         distance_km: Number(distanceKm.toFixed(1)),
       };
