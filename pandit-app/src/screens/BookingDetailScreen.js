@@ -110,12 +110,19 @@ export default function BookingDetailScreen({ route, navigation }) {
   const validDate = !Number.isNaN(date.getTime());
   const canComplete = validDate && new Date().setHours(0, 0, 0, 0) >= new Date(date).setHours(0, 0, 0, 0);
   const coordinates = Number.isFinite(Number(booking.latitude)) && Number.isFinite(Number(booking.longitude)) ? { latitude: Number(booking.latitude), longitude: Number(booking.longitude) } : null;
+  const formatServiceTime = (value) => value ? new Date(value).toLocaleString(hindi ? "hi-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
   if (completed) return (
     <SafeAreaView style={s.screen}><ScrollView contentContainerStyle={s.completedPage}>
       <View style={s.completedHero}><View style={s.completedIcon}><Text style={s.check}>✓</Text></View><Text style={s.overline}>CEREMONY COMPLETED</Text><Text style={s.completedTitle}>{pooja}</Text><Text style={s.completedSub}>A concise record of your completed service.</Text></View>
       <View style={s.summaryCard}>
         <Summary label="CUSTOMER" value={booking.user_name || "Customer"} />
+        <View style={s.rule} />
+        <Summary label="CEREMONY DATE & TIME" value={`${validDate ? date.toLocaleDateString(hindi ? "hi-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"} · ${booking.booking_time?.slice(0, 5) || "—"}`} />
+        <View style={s.rule} />
+        <Summary label="STARTED" value={formatServiceTime(booking.service_started_at)} />
+        <View style={s.rule} />
+        <Summary label="COMPLETED" value={formatServiceTime(booking.service_completed_at)} />
         <View style={s.rule} />
         <Summary label="YOUR EARNING" value={money(booking.pandit_payout_amount)} accent />
         <View style={s.rule} />

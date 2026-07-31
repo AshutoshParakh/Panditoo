@@ -52,7 +52,12 @@ export default function BookingsScreen({ navigation }) {
     }
   }, []);
 
-  useEffect(() => { if (focused) fetchBookings(); }, [focused, fetchBookings]);
+  useEffect(() => {
+    if (!focused) return undefined;
+    fetchBookings();
+    const timer = setInterval(() => fetchBookings(true), 10000);
+    return () => clearInterval(timer);
+  }, [focused, fetchBookings]);
 
   const visibleBookings = useMemo(() => bookings.filter((booking) => {
     if (activeTab === "upcoming") return booking.status === "confirmed";
@@ -91,7 +96,8 @@ export default function BookingsScreen({ navigation }) {
 
   const renderBooking = ({ item }) => {
     const status = statusConfig[item.status] || statusConfig.pending;
-    const name = language === "hi" ? item.name_hi || item.name_en : item.name_en || item.name_hi;
+    const ceremonyName = language === "hi" ? item.name_hi || item.name_en : item.name_en || item.name_hi;
+    const name = item.service_otp ? `${ceremonyName} · OTP ${item.service_otp.code}` : ceremonyName;
     const date = new Date(item.booking_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
     const paid = Number(item.prepaid_amount || 0);
     return <View style={s.card}><View style={s.cardHeader}><View style={s.poojaIcon}><Text style={s.spark}>✦</Text></View><View style={s.titleCopy}><Text numberOfLines={1} style={s.cardTitle}>{name}</Text>{item.name_hi && language !== "hi" ? <Text numberOfLines={1} style={s.hindiName}>{item.name_hi}</Text> : null}</View><Text style={[s.status, { color: status.color, backgroundColor: status.background }]}>{status.label}</Text></View><View style={s.rule} /><Text style={s.meta}>▣ {date}    ◷ {item.booking_time}</Text>{item.address ? <Text numberOfLines={1} style={s.meta}>● {item.address}</Text> : null}{item.confirmed_pandit?.name ? <View style={s.panditRow}><View style={s.panditAvatar}><Text style={s.om}>ॐ</Text></View><Text numberOfLines={1} style={s.panditName}>{item.confirmed_pandit.name}</Text><Text style={s.confirmedDot}>● Confirmed</Text></View> : null}<View style={s.priceRow}><View><Text style={s.price}>₹{Number(item.total_price || 0).toLocaleString("en-IN")}</Text>{paid > 0 ? <Text style={s.paid}>₹{paid.toLocaleString("en-IN")} paid · balance payable to pandit</Text> : <Text style={s.paid}>Payment pending</Text>}<Text style={s.reference}>#{String(item.id).slice(0, 8).toUpperCase()}</Text></View><View style={s.actions}>{["pending", "confirmed"].includes(item.status) ? <TouchableOpacity style={s.cancelButton} onPress={() => confirmCancellation(item)} disabled={cancellingId === item.id}>{cancellingId === item.id ? <ActivityIndicator size="small" color="#A44747" /> : <Text style={s.cancelText}>Cancel</Text>}</TouchableOpacity> : null}{!["cancelled", "expired"].includes(item.status) ? <TouchableOpacity style={s.detailsButton} onPress={() => openBooking(item)}><Text style={s.detailsText}>{item.status === "pending" && item.prepaid_status !== "paid" ? "Pay Now" : "View Details"}</Text></TouchableOpacity> : null}</View></View></View>;

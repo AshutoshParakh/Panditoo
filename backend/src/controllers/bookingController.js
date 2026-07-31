@@ -11,6 +11,42 @@ const serviceOtpHash = (bookingId, phase, otp) =>
   crypto.createHash("sha256").update(`${bookingId}:${phase}:${otp}`).digest("hex");
 const generateServiceOtp = () => String(Math.floor(100000 + Math.random() * 900000));
 
+const serviceOtpEncryptionKey = () => crypto
+  .createHash("sha256")
+  .update(process.env.SERVICE_OTP_ENCRYPTION_KEY || process.env.JWT_SECRET || "development-only-service-otp-key")
+  .digest();
+
+const encryptServiceOtp = (otp) => {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", serviceOtpEncryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(otp, "utf8"), cipher.final()]);
+  return `${iv.toString("base64")}.${cipher.getAuthTag().toString("base64")}.${encrypted.toString("base64")}`;
+};
+
+const decryptServiceOtp = (value) => {
+  try {
+    const [iv, tag, encrypted] = String(value || "").split(".").map((part) => Buffer.from(part, "base64"));
+    const decipher = crypto.createDecipheriv("aes-256-gcm", serviceOtpEncryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+  } catch (_error) {
+    return null;
+  }
+};
+
+const attachActiveServiceOtp = (booking) => {
+  const phase = booking.service_otp_phase;
+  const expiresAt = phase === "start" ? booking.start_otp_expires_at : phase === "end" ? booking.end_otp_expires_at : null;
+  const isActive = expiresAt && new Date(expiresAt).getTime() > Date.now();
+  const otp = isActive ? decryptServiceOtp(booking.service_otp_ciphertext) : null;
+  delete booking.service_otp_ciphertext;
+  delete booking.service_otp_phase;
+  delete booking.start_otp_expires_at;
+  delete booking.end_otp_expires_at;
+  if (otp) booking.service_otp = { phase, code: otp, expires_at: expiresAt };
+  return booking;
+};
+
 const parsePagination = (req) => {
   const page = Math.max(1, Number.parseInt(req.query.page || "1", 10));
   const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit || "10", 10)));
@@ -191,6 +227,10 @@ const getBookingById = async (req, res, next) => {
           b.pandit_payout_status,
           b.created_at,
           b.updated_at,
+          b.service_otp_ciphertext,
+          b.service_otp_phase,
+          b.start_otp_expires_at,
+          b.end_otp_expires_at,
           pt.name_en,
           pt.name_hi,
           pt.description_en,
@@ -237,7 +277,7 @@ const getBookingById = async (req, res, next) => {
       }
     }
 
-    return res.status(200).json({ success: true, data: booking });
+    return res.status(200).json({ success: true, data: attachActiveServiceOtp(booking) });
   } catch (error) {
     return next(error);
   }
@@ -271,6 +311,10 @@ const listBookingsForUser = async (req, res, next) => {
             b.pandit_payout_status,
             b.created_at,
             b.updated_at,
+            b.service_otp_ciphertext,
+            b.service_otp_phase,
+            b.start_otp_expires_at,
+            b.end_otp_expires_at,
             pt.name_en,
             pt.name_hi,
             CASE WHEN p.id IS NOT NULL THEN json_build_object(
@@ -293,7 +337,7 @@ const listBookingsForUser = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      data: bookingsResult.rows,
+      data: bookingsResult.rows.map(attachActiveServiceOtp),
       pagination: {
         page,
         limit,
@@ -482,8 +526,9 @@ const sendServiceOtp = (phase) => async (req, res, next) => {
     const action = phase === "start" ? "start" : "complete";
     const otpMessage = `Your OTP to ${action} Panditoo booking ${bookingId} is ${otp}. Share it only with your pandit. Valid for 5 minutes.`;
     await query(
-      `UPDATE bookings SET ${phase}_otp_hash = $1, ${phase}_otp_expires_at = NOW() + INTERVAL '5 minutes', updated_at = NOW() WHERE id = $2`,
-      [serviceOtpHash(bookingId, phase, otp), bookingId]
+      `UPDATE bookings SET ${phase}_otp_hash = $1, ${phase}_otp_expires_at = NOW() + INTERVAL '5 minutes',
+         service_otp_ciphertext = $2, service_otp_phase = $3, updated_at = NOW() WHERE id = $4`,
+      [serviceOtpHash(bookingId, phase, otp), encryptServiceOtp(otp), phase, bookingId]
     );
     const delivery = await sendOTP(booking.phone, otp, {
       purpose: `service_${phase} booking=${bookingId}`,
@@ -491,7 +536,8 @@ const sendServiceOtp = (phase) => async (req, res, next) => {
     });
     if (!delivery.success) {
       await query(
-        `UPDATE bookings SET ${phase}_otp_hash = NULL, ${phase}_otp_expires_at = NULL, updated_at = NOW() WHERE id = $1`,
+        `UPDATE bookings SET ${phase}_otp_hash = NULL, ${phase}_otp_expires_at = NULL,
+           service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW() WHERE id = $1`,
         [bookingId]
       );
       return res.status(502).json({ success: false, message: "Could not send OTP to the customer" });
@@ -506,7 +552,8 @@ const verifyStartServiceOtp = async (req, res, next) => {
     const otp = String(req.body.otp || "").trim();
     if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, message: "Enter a valid 6-digit OTP" });
     const result = await query(
-      `UPDATE bookings SET service_started_at = NOW(), start_otp_hash = NULL, start_otp_expires_at = NULL, updated_at = NOW()
+      `UPDATE bookings SET service_started_at = NOW(), start_otp_hash = NULL, start_otp_expires_at = NULL,
+         service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
        WHERE id = $1 AND confirmed_pandit_id = $2 AND status = 'confirmed' AND service_started_at IS NULL
          AND start_otp_hash = $3 AND start_otp_expires_at > NOW()
        RETURNING service_started_at`,
@@ -525,7 +572,8 @@ const verifyEndServiceOtp = async (req, res, next) => {
     if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, message: "Enter a valid 6-digit OTP" });
     await client.query("BEGIN");
     const result = await client.query(
-      `UPDATE bookings SET status = 'completed', service_completed_at = NOW(), end_otp_hash = NULL, end_otp_expires_at = NULL, updated_at = NOW()
+      `UPDATE bookings SET status = 'completed', service_completed_at = NOW(), end_otp_hash = NULL, end_otp_expires_at = NULL,
+         service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
        WHERE id = $1 AND confirmed_pandit_id = $2 AND status = 'confirmed' AND service_started_at IS NOT NULL
          AND end_otp_hash = $3 AND end_otp_expires_at > NOW()
        RETURNING id, pandit_payout_amount, service_started_at, service_completed_at`,
@@ -569,7 +617,7 @@ const listRequestsForPandit = async (req, res, next) => {
            b.id AS booking_id,
            b.booking_date,
            b.booking_time,
-           b.address,
+           CASE WHEN b.status <> 'completed' THEN b.address ELSE NULL END AS address,
            b.total_price,
            b.pandit_payout_amount,
            pt.name_en AS pooja_name_en,
@@ -623,7 +671,7 @@ const listBookingsForPandit = async (req, res, next) => {
            b.id AS booking_id,
            b.booking_date,
            b.booking_time,
-           b.address,
+           CASE WHEN b.status <> 'completed' THEN b.address ELSE NULL END AS address,
            b.status AS booking_status,
            b.total_price,
            b.pandit_payout_amount,
@@ -670,9 +718,9 @@ const getBookingByIdForPandit = async (req, res, next) => {
          b.id AS booking_id,
          b.booking_date,
          b.booking_time,
-         b.address,
-         b.latitude,
-         b.longitude,
+         CASE WHEN b.status <> 'completed' THEN b.address ELSE NULL END AS address,
+         CASE WHEN b.status <> 'completed' THEN b.latitude ELSE NULL END AS latitude,
+         CASE WHEN b.status <> 'completed' THEN b.longitude ELSE NULL END AS longitude,
          b.status AS booking_status,
          b.total_price,
          b.pandit_payout_amount,
