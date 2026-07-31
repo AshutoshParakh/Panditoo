@@ -57,6 +57,7 @@ const listPanditRequests = async (req, res, next) => {
         u.name AS user_name,
         pt.name_en AS pooja_name_en,
         pt.name_hi AS pooja_name_hi,
+        pt.credit_cost,
         pt.samagri_list,
         p.latitude AS pandit_latitude,
         p.longitude AS pandit_longitude,

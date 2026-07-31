@@ -437,9 +437,10 @@ const handlePanditBookingResponse = async (req, res, next) => {
 
     const requestResult = await client.query(
       `
-        SELECT br.id, br.status, br.booking_id, b.booking_date, b.booking_time, b.prepaid_status
+        SELECT br.id, br.status, br.booking_id, b.booking_date, b.booking_time, b.prepaid_status, pt.credit_cost
         FROM booking_requests br
         INNER JOIN bookings b ON b.id = br.booking_id
+        INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
         WHERE br.booking_id = $1
           AND br.pandit_id = $2
         LIMIT 1
@@ -486,6 +487,13 @@ const handlePanditBookingResponse = async (req, res, next) => {
 
     if (bookingUpdateResult.rowCount === 1) {
       const updatedBooking = bookingUpdateResult.rows[0];
+
+      await client.query("INSERT INTO pandit_credit_wallets(pandit_id) VALUES($1) ON CONFLICT DO NOTHING",[panditId]);
+      const wallet=await client.query("SELECT balance FROM pandit_credit_wallets WHERE pandit_id=$1 FOR UPDATE",[panditId]);
+      const creditCost=Number(bookingRequest.credit_cost||10);
+      if(Number(wallet.rows[0].balance)<creditCost){await client.query("ROLLBACK");return res.status(402).json({success:false,message:`You need ${creditCost} credits to accept this service. Please purchase credits.`});}
+      const debit=await client.query("INSERT INTO pandit_credit_transactions(pandit_id,booking_id,type,direction,credits,description) VALUES($1,$2,'service_acceptance','debit',$3,'Credits used to accept service') ON CONFLICT DO NOTHING RETURNING id",[panditId,bookingId,creditCost]);
+      if(debit.rowCount)await client.query("UPDATE pandit_credit_wallets SET balance=balance-$1,updated_at=NOW() WHERE pandit_id=$2",[creditCost,panditId]);
 
       await client.query(
         `

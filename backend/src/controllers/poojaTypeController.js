@@ -25,6 +25,7 @@ const listAdminPoojaTypes = async (req, res, next) => {
             description_en,
             description_hi,
             base_price,
+            credit_cost,
             duration_minutes,
             samagri_list,
             is_active,
@@ -62,6 +63,7 @@ const createPoojaType = async (req, res, next) => {
       description_en = null,
       description_hi = null,
       base_price,
+      credit_cost = 10,
       duration_minutes = 60,
       samagri_list,
       is_active = true,
@@ -75,11 +77,12 @@ const createPoojaType = async (req, res, next) => {
           description_en,
           description_hi,
           base_price,
+          credit_cost,
           duration_minutes,
           samagri_list,
           is_active
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
         RETURNING
           id,
           name_en,
@@ -87,6 +90,7 @@ const createPoojaType = async (req, res, next) => {
           description_en,
           description_hi,
           base_price,
+          credit_cost,
           duration_minutes,
           samagri_list,
           is_active,
@@ -98,6 +102,7 @@ const createPoojaType = async (req, res, next) => {
         description_en,
         description_hi,
         base_price,
+        credit_cost,
         duration_minutes,
         JSON.stringify(samagri_list),
         is_active,
@@ -126,6 +131,7 @@ const updatePoojaType = async (req, res, next) => {
       description_en: "description_en",
       description_hi: "description_hi",
       base_price: "base_price",
+      credit_cost: "credit_cost",
       duration_minutes: "duration_minutes",
       is_active: "is_active",
     };
@@ -162,6 +168,7 @@ const updatePoojaType = async (req, res, next) => {
           description_en,
           description_hi,
           base_price,
+          credit_cost,
           duration_minutes,
           samagri_list,
           is_active,
@@ -227,6 +234,7 @@ const listPublicPoojaTypes = async (req, res, next) => {
           ${nameColumn} AS name,
           ${descriptionColumn} AS description,
           base_price,
+          credit_cost,
           duration_minutes,
           samagri_list,
           is_active,

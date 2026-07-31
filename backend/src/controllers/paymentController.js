@@ -5,6 +5,7 @@ const {
   verifyWebhookSignature,
 } = require("../utils/razorpay");
 const { triggerPendingPanditNotifications } = require("../utils/notifications");
+const { creditCapturedOrder } = require("./creditController");
 
 const activateBookingAfterPrepayment = async (client, { bookingId, orderId, paymentId, paymentStatus = "paid" }) => {
   const paymentResult = await client.query(
@@ -242,6 +243,10 @@ const handleRazorpayWebhook = async (req, res, next) => {
     if (eventName !== "payment.captured" && eventName !== "order.paid") {
       return res.status(200).json({ success: true, message: "ignored" });
     }
+
+    await client.query("BEGIN");
+    if(await creditCapturedOrder(client,paymentEntity.order_id,paymentEntity.id)){await client.query("COMMIT");return res.status(200).json({success:true,message:"credit_purchase_processed"});}
+    await client.query("ROLLBACK");
 
     const paymentRecordResult = await client.query(
       `

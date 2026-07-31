@@ -44,6 +44,7 @@ export default function RequestDetailScreen({ route, navigation }) {
       <Detail label={hindi ? "दूरी" : "Distance"} value={distance} />
       <Detail label={hindi ? "अनुमानित क्षेत्र" : "Approximate area"} value={area} />
       <Detail label={hindi ? "आपकी आय" : "Your payout"} value={money(request.pandit_payout_amount)} accent />
+      <Detail label={hindi ? "स्वीकार करने के क्रेडिट" : "Credits required"} value={`${request.credit_cost || 10} credits`} />
     </View>
     <View style={s.card}><Text style={s.materialTitle}>{hindi ? "आपको लाने वाली सामग्री" : "Materials you need to bring"}</Text>{materials.length ? materials.map((item, index) => <Text key={index} style={s.material}>• {(hindi ? item.item_hi : item.item_en) || item.item_en || item.item_hi}</Text>) : <Text style={s.empty}>{hindi ? "सभी सामग्री ग्राहक देंगे" : "All materials are provided by the customer"}</Text>}</View>
     <Text style={s.privacy}>{hindi ? "पूरा पता केवल अनुरोध स्वीकार होने के बाद दिखेगा।" : "The exact address is revealed only after you accept."}</Text>

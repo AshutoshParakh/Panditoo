@@ -87,7 +87,7 @@ export function PoojaTypesPage() {
   const openCreate = () => {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue({ duration_minutes: 60, is_active: true, samagri_list: [{ item: "", brought_by: "pandit" }] });
+    form.setFieldsValue({ duration_minutes: 60, credit_cost: 10, is_active: true, samagri_list: [{ item: "", brought_by: "pandit" }] });
     setOpen(true);
   };
 
@@ -152,6 +152,7 @@ export function PoojaTypesPage() {
     { title: "Name (EN)", dataIndex: "name_en", key: "name_en" },
     { title: "Name (HI)", dataIndex: "name_hi", key: "name_hi" },
     { title: "Base Price", dataIndex: "base_price", key: "base_price", render: (value) => `Rs ${value}` },
+    { title: "Accept Credits", dataIndex: "credit_cost", key: "credit_cost", render: (value) => `${value || 10} credits` },
     { title: "Duration", dataIndex: "duration_minutes", key: "duration_minutes", render: (value) => `${value} min` },
     { title: "Samagri Items", key: "samagri_list", render: (_value, record) => Array.isArray(record.samagri_list) ? record.samagri_list.length : 0 },
     { title: "Status", key: "is_active", render: (_value, record) => record.is_active ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag> },
@@ -172,6 +173,7 @@ export function PoojaTypesPage() {
             <Col xs={24} md={12}><Form.Item name="description_en" label="Description (English)"><Input.TextArea rows={3} /></Form.Item></Col>
             <Col xs={24} md={12}><Form.Item name="description_hi" label="Description (Hindi)"><Input.TextArea rows={3} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item name="base_price" label="Base Price" rules={[{ required: true }]}><InputNumber min={0} style={{ width: "100%" }} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="credit_cost" label="Credits required to accept" rules={[{ required: true }]}><InputNumber min={1} style={{ width: "100%" }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item name="duration_minutes" label="Duration (minutes)" rules={[{ required: true }]}><InputNumber min={1} style={{ width: "100%" }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item name="is_active" label="Active" valuePropName="checked"><Switch /></Form.Item></Col>
           </Row>

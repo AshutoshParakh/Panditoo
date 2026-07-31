@@ -9,18 +9,20 @@ import { colors, shadow } from "../theme";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { i18n } = useTranslation(); const hindi = i18n.language === "hi";
   const { token, pandit, logout, refreshProfile } = useAuth(); const { toggleLanguage, language } = useLanguage();
   const [editing, setEditing] = useState(false); const [saving, setSaving] = useState(false); const [completed, setCompleted] = useState(0);
   const [name, setName] = useState(""); const [specializations, setSpecializations] = useState(""); const [serviceRadius, setServiceRadius] = useState(""); const [address, setAddress] = useState("");
   const [holderName, setHolderName] = useState(""); const [bankName, setBankName] = useState(""); const [accountNumber, setAccountNumber] = useState(""); const [ifscCode, setIfscCode] = useState("");
+  const [creditBalance,setCreditBalance]=useState(0);
 
   const initialise = useCallback(async () => {
     if (!pandit) return;
     setName(pandit.name || ""); setSpecializations(Array.isArray(pandit.specializations) ? pandit.specializations.join(", ") : ""); setServiceRadius(String(pandit.service_radius_km || 15)); setAddress(pandit.address || "");
     const bank = pandit.bank_account_details || {}; setHolderName(bank.holderName || ""); setBankName(bank.bankName || ""); setAccountNumber(bank.accountNo || bank.accountNumber || ""); setIfscCode(bank.ifscCode || "");
     try { const response = await fetch(`${API_URL}/pandits/${pandit.id}/earnings`, { headers: { Authorization: `Bearer ${token}` } }); const json = await response.json(); if (response.ok && json.success) setCompleted(json.data?.bookings?.length || 0); } catch (_) {}
+    try { const response=await fetch(`${API_URL}/pandits/${pandit.id}/credits`,{headers:{Authorization:`Bearer ${token}`}});const json=await response.json();if(response.ok&&json.success)setCreditBalance(json.data.balance||0); } catch (_) {}
   }, [pandit, token]);
   useFocusEffect(useCallback(() => { initialise(); }, [initialise]));
 
@@ -46,6 +48,7 @@ export default function ProfileScreen() {
     {!editing ? <>
       <View style={s.profileCard}><View style={s.avatar}><Text style={s.avatarText}>{String(pandit?.name || "P").charAt(0).toUpperCase()}</Text>{pandit?.is_verified ? <View style={s.verified}><Text style={s.verifiedText}>✓</Text></View> : null}</View><View style={s.profileCopy}><View style={s.nameRow}><Text style={s.name}>{pandit?.name || "Pandit Ji"}</Text>{pandit?.is_verified ? <Text style={s.verifiedLabel}>{hindi ? "सत्यापित" : "Verified"}</Text> : null}</View><Text style={s.phone}>+91 {pandit?.phone || "—"}</Text><Text numberOfLines={1} style={s.profileAddress}>{pandit?.address || (hindi ? "पता उपलब्ध नहीं" : "Address not provided")}</Text></View></View>
       <View style={s.stats}><Stat value={pandit?.rating ? Number(pandit.rating).toFixed(1) : "0.0"} label={hindi ? "रेटिंग" : "Rating"} /><View style={s.statRule} /><Stat value={completed} label={hindi ? "पूर्ण पूजा" : "Completed"} /><View style={s.statRule} /><Stat value={`${pandit?.service_radius_km || 15} km`} label={hindi ? "सेवा क्षेत्र" : "Radius"} /></View>
+      <TouchableOpacity onPress={()=>navigation.navigate("CreditWallet")} style={{backgroundColor:"#34251F",borderRadius:16,padding:15,marginTop:12,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}><View><Text style={{color:"#DCCFC6",fontSize:9,fontWeight:"900"}}>SERVICE CREDIT WALLET</Text><Text style={{color:"#FFD36A",fontSize:25,fontWeight:"900",marginTop:4}}>{creditBalance} credits</Text></View><Text style={{color:"#FFF",fontSize:10,fontWeight:"800"}}>Purchase & history  ›</Text></TouchableOpacity>
       <Section title={hindi ? "सेवाएं और विशेषज्ञता" : "Services & expertise"}><View style={s.chips}>{pandit?.specializations?.length ? pandit.specializations.map((item, index) => <View key={`${item}-${index}`} style={s.chip}><Text style={s.chipText}>{item}</Text></View>) : <Text style={s.muted}>{hindi ? "कोई सेवा नहीं जोड़ी" : "No services added"}</Text>}</View></Section>
       <Section title={hindi ? "भुगतान खाता" : "Payout account"}><InfoRow label={hindi ? "बैंक" : "Bank"} value={bank.bankName || "—"} /><InfoRow label={hindi ? "खाताधारक" : "Account holder"} value={bank.holderName || "—"} /><InfoRow label={hindi ? "खाता नंबर" : "Account number"} value={account ? `•••• ${String(account).slice(-4)}` : "—"} /><InfoRow label="IFSC" value={bank.ifscCode || "—"} last /></Section>
       <Section title={hindi ? "प्राथमिकताएं" : "Preferences"}><TouchableOpacity style={s.preference} onPress={toggleLanguage}><View><Text style={s.preferenceTitle}>{hindi ? "ऐप की भाषा" : "App language"}</Text><Text style={s.preferenceText}>{language === "hi" ? "हिन्दी" : "English"}</Text></View><Text style={s.preferenceAction}>{language === "hi" ? "English" : "हिन्दी"}  ›</Text></TouchableOpacity></Section>
