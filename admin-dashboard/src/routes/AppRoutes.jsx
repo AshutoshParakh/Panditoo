@@ -14,6 +14,7 @@ import {
 } from "../pages/ResourcePages";
 import { LoginPage } from "../pages/LoginPage";
 import { PricingControlPage } from "../pages/PricingControlPage";
+import { WithdrawalsPage } from "../pages/WithdrawalsPage";
 
 export function AppRoutes() {
   return (
@@ -30,6 +31,7 @@ export function AppRoutes() {
           <Route path="/pooja-types" element={<PoojaTypesPage />} />
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/pricing-control" element={<PricingControlPage />} />
+          <Route path="/withdrawals" element={<WithdrawalsPage />} />
           <Route path="/reports" element={<ModulePlaceholderPage title="Reports" accent="reports" description="Exportable performance reporting, approval trend analysis, and marketplace KPIs can live here." />} />
         </Route>
       </Route>

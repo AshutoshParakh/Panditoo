@@ -29,11 +29,14 @@ const {
 
 const router = express.Router();
 const pricingAdmin = require("../controllers/pricingAdminController");
+const walletAdmin = require("../controllers/walletAdminController");
 
 router.use(authenticateAdmin);
 
 router.get("/dashboard-stats", getDashboardStats);
 router.get("/pricing-control", pricingAdmin.getPricingControl);
+router.get("/withdrawals", walletAdmin.listWithdrawals);
+router.patch("/withdrawals/:id", walletAdmin.processWithdrawal);
 router.put("/pricing-control/settings", pricingAdmin.updateSettings);
 router.post("/pricing-control/slots", pricingAdmin.saveSlot);
 router.put("/pricing-control/slots/:id", pricingAdmin.saveSlot);

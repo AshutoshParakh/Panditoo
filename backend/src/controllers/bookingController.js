@@ -608,7 +608,7 @@ const verifyEndServiceOtp = async (req, res, next) => {
          service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
        WHERE id = $1 AND confirmed_pandit_id = $2 AND status = 'confirmed' AND service_started_at IS NOT NULL
          AND end_otp_hash = $3 AND end_otp_expires_at > NOW()
-       RETURNING id, pandit_payout_amount, service_started_at, service_completed_at`,
+       RETURNING id, confirmed_pandit_id, payment_percent, pandit_payout_amount, service_started_at, service_completed_at`,
       [req.params.bookingId, req.pandit.id, serviceOtpHash(req.params.bookingId, "end", otp)]
     );
     if (!result.rowCount) { await client.query("ROLLBACK"); return res.status(400).json({ success: false, message: "Invalid or expired completion OTP" }); }
@@ -618,6 +618,26 @@ const verifyEndServiceOtp = async (req, res, next) => {
        WHERE NOT EXISTS (SELECT 1 FROM payments WHERE booking_id = $1 AND type = 'pandit_payout')`,
       [req.params.bookingId, result.rows[0].pandit_payout_amount]
     );
+    if (Number(result.rows[0].payment_percent) === 100) {
+      await client.query(
+        `INSERT INTO pandit_wallets (pandit_id) VALUES ($1) ON CONFLICT (pandit_id) DO NOTHING`,
+        [result.rows[0].confirmed_pandit_id]
+      );
+      const credit = await client.query(
+        `INSERT INTO wallet_transactions (pandit_id, booking_id, transaction_type, direction, amount, description)
+         VALUES ($1,$2,'festival_booking_credit','credit',$3,'100% online-paid booking completed')
+         ON CONFLICT (booking_id) WHERE transaction_type='festival_booking_credit' DO NOTHING
+         RETURNING amount`,
+        [result.rows[0].confirmed_pandit_id, req.params.bookingId, result.rows[0].pandit_payout_amount]
+      );
+      if (credit.rowCount) {
+        await client.query(
+          `UPDATE pandit_wallets SET available_balance=available_balance+$1,
+             lifetime_credited=lifetime_credited+$1,updated_at=NOW() WHERE pandit_id=$2`,
+          [result.rows[0].pandit_payout_amount, result.rows[0].confirmed_pandit_id]
+        );
+      }
+    }
     await client.query("COMMIT");
     console.log(`[SERVICE] COMPLETED | booking=${req.params.bookingId} | pandit=${req.pandit.id} | completedAt=${result.rows[0].service_completed_at.toISOString()}`);
     return res.json({ success: true, message: "booking_completed", service_started_at: result.rows[0].service_started_at, service_completed_at: result.rows[0].service_completed_at });

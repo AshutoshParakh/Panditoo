@@ -1,5 +1,5 @@
 const { findPanditsWithinRadius, haversineDistanceKm } = require("../utils/geo");
-const { query } = require("../config/db");
+const { pool, query } = require("../config/db");
 
 const listNearbyPandits = async (req, res, next) => {
   try {
@@ -155,6 +155,11 @@ const getPanditEarnings = async (req, res, next) => {
     );
 
     const allBookings = result.rows;
+    const [walletResult, withdrawalsResult, walletTransactionsResult] = await Promise.all([
+      query("SELECT available_balance,lifetime_credited,updated_at FROM pandit_wallets WHERE pandit_id=$1",[panditId]),
+      query("SELECT id,amount,status,admin_note,requested_at,processed_at FROM withdrawal_requests WHERE pandit_id=$1 ORDER BY requested_at DESC LIMIT 20",[panditId]),
+      query("SELECT id,booking_id,transaction_type,direction,amount,description,created_at FROM wallet_transactions WHERE pandit_id=$1 ORDER BY created_at DESC LIMIT 30",[panditId]),
+    ]);
     let totalAllTime = 0;
     let totalThisMonth = 0;
 
@@ -210,11 +215,33 @@ const getPanditEarnings = async (req, res, next) => {
           payout_amount: b.pandit_payout_amount,
           payout_status: b.pandit_payout_status,
         })),
+        wallet: walletResult.rows[0] || { available_balance: 0, lifetime_credited: 0 },
+        withdrawals: withdrawalsResult.rows,
+        wallet_transactions: walletTransactionsResult.rows,
       },
     });
   } catch (error) {
     return next(error);
   }
+};
+
+const requestWithdrawal = async (req,res,next) => {
+  const client=await pool.connect();
+  try {
+    if(req.params.id!==req.pandit.id)return res.status(403).json({success:false,message:"You can only withdraw your own balance"});
+    await client.query("BEGIN");
+    const panditResult=await client.query("SELECT bank_account_details FROM pandits WHERE id=$1",[req.pandit.id]);
+    const bank=panditResult.rows[0]?.bank_account_details||{};
+    if(!bank.accountNo&&!bank.accountNumber){await client.query("ROLLBACK");return res.status(400).json({success:false,message:"Add your bank account before requesting withdrawal"});}
+    await client.query("INSERT INTO pandit_wallets(pandit_id) VALUES($1) ON CONFLICT DO NOTHING",[req.pandit.id]);
+    const wallet=await client.query("SELECT available_balance FROM pandit_wallets WHERE pandit_id=$1 FOR UPDATE",[req.pandit.id]);
+    const available=Number(wallet.rows[0].available_balance); const requested=req.body.amount==null?available:Number(req.body.amount);
+    if(!Number.isFinite(requested)||requested<=0||requested>available){await client.query("ROLLBACK");return res.status(400).json({success:false,message:"Withdrawal amount exceeds available wallet balance"});}
+    const withdrawal=await client.query("INSERT INTO withdrawal_requests(pandit_id,amount,bank_snapshot) VALUES($1,$2,$3) RETURNING *",[req.pandit.id,requested,bank]);
+    await client.query("UPDATE pandit_wallets SET available_balance=available_balance-$1,updated_at=NOW() WHERE pandit_id=$2",[requested,req.pandit.id]);
+    await client.query("INSERT INTO wallet_transactions(pandit_id,withdrawal_request_id,transaction_type,direction,amount,description) VALUES($1,$2,'withdrawal_hold','debit',$3,'Withdrawal requested; payout expected in 2-3 working days')",[req.pandit.id,withdrawal.rows[0].id,requested]);
+    await client.query("COMMIT");res.status(201).json({success:true,message:"Withdrawal requested. Payout is expected in 2-3 working days.",data:withdrawal.rows[0]});
+  }catch(e){try{await client.query("ROLLBACK");}catch{}next(e);}finally{client.release();}
 };
 
 const updatePanditProfile = async (req, res, next) => {
@@ -282,4 +309,5 @@ module.exports = {
   listPanditRequests,
   getPanditEarnings,
   updatePanditProfile,
+  requestWithdrawal,
 };
