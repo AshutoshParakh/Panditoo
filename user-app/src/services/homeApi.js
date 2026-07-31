@@ -31,8 +31,9 @@ export async function fetchHomeData(lang = "en", coordinates = null) {
     const userId = await AsyncStorage.getItem("user-id");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const previous = cache.get(lang) || {};
-    const [poojas, pandits, profile, bookings] = await Promise.all([
+    const [poojas, offers, pandits, profile, bookings] = await Promise.all([
       get(`/pooja-types?lang=${lang}`).catch(() => previous.poojas || []),
+      get("/offers/active").catch(() => previous.offers || []),
       coordinates
         ? get(`/pandits/nearby?lat=${encodeURIComponent(coordinates.latitude)}&lng=${encodeURIComponent(coordinates.longitude)}&radius=50`).catch(() => previous.pandits || [])
         : previous.pandits || [],
@@ -41,7 +42,7 @@ export async function fetchHomeData(lang = "en", coordinates = null) {
         ? get(`/bookings/user/${userId}`, headers).catch(() => [])
         : [],
     ]);
-    const result = { poojas, pandits, profile: profile?.user || profile, bookings };
+    const result = { poojas, offers, pandits, profile: profile?.user || profile, bookings };
     cache.set(lang, result);
     return result;
   })();

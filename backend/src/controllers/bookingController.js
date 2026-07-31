@@ -144,7 +144,7 @@ const createBooking = async (req, res, next) => {
     const quote = await getPriceQuote({ poojaTypeId: pooja_type_id, bookingDate: booking_date, couponCode: coupon_code });
     const basePrice = quote.total_price;
     const prepaidAmount = quote.payable_now;
-    const panditPayoutAmount = Number((basePrice * 0.7).toFixed(2));
+    const panditPayoutAmount = Number((Number(quote.payout_basis_amount || basePrice) * 0.7).toFixed(2));
 
     const bookingResult = await client.query(
       `
@@ -168,9 +168,11 @@ const createBooking = async (req, res, next) => {
           discount_amount,
           coupon_id,
           coupon_code,
-          payment_percent
+          payment_percent,
+          promotional_offer_id,
+          payout_basis_amount
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending', $11, $12, $13, $14, $15)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending', $11, $12, $13, $14, $15, $16, $17)
         RETURNING id, user_id, pooja_type_id, status, total_price, prepaid_amount, prepaid_status, pandit_payout_amount, pandit_payout_status, created_at
       `,
       [
@@ -189,6 +191,8 @@ const createBooking = async (req, res, next) => {
         quote.coupon?.id || null,
         quote.coupon?.code || null,
         quote.payment_percent,
+        quote.promotional_offer?.id || null,
+        quote.payout_basis_amount,
       ]
     );
 

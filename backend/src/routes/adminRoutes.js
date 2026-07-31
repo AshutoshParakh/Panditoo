@@ -47,6 +47,9 @@ router.patch("/pricing-control/rules/:id", pricingAdmin.toggleRule);
 router.post("/pricing-control/coupons", pricingAdmin.saveCoupon);
 router.put("/pricing-control/coupons/:id", pricingAdmin.saveCoupon);
 router.patch("/pricing-control/coupons/:id", pricingAdmin.toggleCoupon);
+router.post("/pricing-control/offers", pricingAdmin.saveOffer);
+router.put("/pricing-control/offers/:id", pricingAdmin.saveOffer);
+router.patch("/pricing-control/offers/:id", pricingAdmin.toggleOffer);
 
 router.get("/bookings", listAdminBookings);
 router.get("/bookings/:id/timeline", getAdminBookingTimeline);

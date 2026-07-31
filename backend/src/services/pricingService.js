@@ -20,10 +20,23 @@ const getPriceQuote = async ({ poojaTypeId, bookingDate, couponCode }) => {
   const rule = ruleResult.rows[0];
   const salePrice = Number(rule?.sale_price ?? pooja.base_price);
   const listPrice = Number(rule?.list_price ?? salePrice);
-  const paymentPercent = Number(rule?.payment_percent || 30);
+  let paymentPercent = Number(rule?.payment_percent || 30);
+  const offerResult = await query(
+    `SELECT o.* FROM promotional_offers o
+     WHERE o.is_active=TRUE AND NOW() BETWEEN o.starts_at AND o.ends_at
+       AND (o.usage_limit IS NULL OR o.used_count < o.usage_limit)
+       AND (o.applies_to_all=TRUE OR EXISTS (SELECT 1 FROM promotional_offer_poojas op WHERE op.offer_id=o.id AND op.pooja_type_id=$1))
+     ORDER BY o.created_at DESC LIMIT 1`, [poojaTypeId]
+  );
+  const offer = offerResult.rows[0] || null;
   let coupon = null;
   let discountAmount = 0;
-  if (couponCode) {
+  if (couponCode && offer) throw Object.assign(new Error("Coupons cannot be combined with an active promotional offer"), { status: 400 });
+  if (offer) {
+    const promotionalPrice = offer.offer_type === "percent" ? salePrice * (1 - Number(offer.offer_value) / 100) : Number(offer.offer_value);
+    discountAmount = Math.max(0, Number((salePrice - Math.min(salePrice, promotionalPrice)).toFixed(2)));
+    paymentPercent = 100;
+  } else if (couponCode) {
     const couponResult = await query(
       `SELECT * FROM coupons WHERE UPPER(code) = UPPER($1) AND is_active = TRUE
        AND NOW() BETWEEN starts_at AND ends_at AND (usage_limit IS NULL OR used_count < usage_limit) LIMIT 1`, [couponCode.trim()]
@@ -42,6 +55,8 @@ const getPriceQuote = async ({ poojaTypeId, bookingDate, couponCode }) => {
     discount_amount: discountAmount, total_price: totalPrice, payment_percent: paymentPercent,
     payable_now: Number((totalPrice * paymentPercent / 100).toFixed(2)),
     remaining_amount: Number((totalPrice * (100 - paymentPercent) / 100).toFixed(2)),
+    payout_basis_amount: salePrice,
+    promotional_offer: offer ? { id: offer.id, title: offer.title, subtitle: offer.subtitle, offer_type: offer.offer_type, offer_value: Number(offer.offer_value) } : null,
     coupon: coupon ? { id: coupon.id, code: coupon.code } : null,
   };
 };

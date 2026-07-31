@@ -9,7 +9,7 @@ const { triggerPendingPanditNotifications } = require("../utils/notifications");
 const activateBookingAfterPrepayment = async (client, { bookingId, orderId, paymentId, paymentStatus = "paid" }) => {
   const paymentResult = await client.query(
     `
-      SELECT p.id, p.booking_id, p.type, p.status, b.user_id, b.prepaid_status, b.coupon_id
+      SELECT p.id, p.booking_id, p.type, p.status, b.user_id, b.prepaid_status, b.coupon_id, b.promotional_offer_id
       FROM payments p
       INNER JOIN bookings b ON b.id = p.booking_id
       WHERE p.booking_id = $1
@@ -62,6 +62,12 @@ const activateBookingAfterPrepayment = async (client, { bookingId, orderId, paym
       [payment.coupon_id]
     );
     if (!couponUse.rowCount) throw new Error("Coupon usage limit has been reached");
+  }
+  if (payment.promotional_offer_id) {
+    await client.query(
+      `UPDATE promotional_offers SET used_count=used_count+1,updated_at=NOW() WHERE id=$1`,
+      [payment.promotional_offer_id]
+    );
   }
 
   const panditRows = await client.query(
