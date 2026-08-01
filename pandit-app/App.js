@@ -22,6 +22,7 @@ import BookingWonScreen from "./src/screens/BookingWonScreen";
 import BookingDetailScreen from "./src/screens/BookingDetailScreen";
 import RequestDetailScreen from "./src/screens/RequestDetailScreen";
 import CreditWalletScreen from "./src/screens/CreditWalletScreen";
+import AvailabilityScreen from "./src/screens/AvailabilityScreen";
 
 
 const Stack = createNativeStackNavigator();
@@ -194,6 +195,7 @@ function AppNavigator() {
               component={RequestDetailScreen}
               options={{ title: "Pooja Request", headerBackTitleVisible: false }}
             />
+            <Stack.Screen name="Availability" component={AvailabilityScreen} options={{ title: "Availability", headerBackTitleVisible: false }} />
             <Stack.Screen
               name="CreditWallet"
               component={CreditWalletScreen}

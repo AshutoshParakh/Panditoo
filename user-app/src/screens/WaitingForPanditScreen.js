@@ -13,6 +13,7 @@ export default function WaitingForPanditScreen({ route, navigation }) {
   const { bookingId, poojaName } = route.params || {};
   const [notifiedCount, setNotifiedCount] = useState(1);
   const [lastChecked, setLastChecked] = useState(new Date());
+  const [booking, setBooking] = useState(null);
   const pulse = useRef(new Animated.Value(0)).current;
 
   const goToHome = () => navigation.reset({ index: 0, routes: [{ name: "Main" }] });
@@ -35,6 +36,7 @@ export default function WaitingForPanditScreen({ route, navigation }) {
         if (!active || !response.ok || !json.success || !json.data) return;
         setLastChecked(new Date());
         setNotifiedCount(json.data.notified_pandits_count || 1);
+        setBooking(json.data);
         if (json.data.status === "confirmed") navigation.replace("BookingConfirmed", { booking: json.data });
       } catch (error) { console.warn("Polling error:", error.message); }
     };
@@ -70,7 +72,7 @@ export default function WaitingForPanditScreen({ route, navigation }) {
         <View style={s.info}><Text style={s.infoMark}>i</Text><Text style={s.infoText}>{hindi ? "आपको ऐप बंद रखने पर भी सूचना मिल जाएगी। आमतौर पर कुछ ही मिनट लगते हैं।" : "You’ll be notified even if you close the app. This usually takes only a few minutes."}</Text></View>
         <Text style={s.checked}>{hindi ? "अभी अपडेट किया गया" : `Last checked ${lastChecked.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}</Text>
       </View>
-      <View style={s.footer}><TouchableOpacity style={s.homeButton} onPress={goToHome} activeOpacity={0.78}><Text style={s.homeText}>{hindi ? "होम पर जाएं" : "Continue to home"}</Text><Text style={s.arrow}>›</Text></TouchableOpacity><Text style={s.footerNote}>{hindi ? "खोज बैकग्राउंड में जारी रहेगी" : "The search will continue in the background"}</Text></View>
+      <View style={s.footer}>{booking ? <TouchableOpacity style={s.cancelButton} onPress={() => navigation.navigate("CancelBooking", { booking })}><Text style={s.cancelText}>Cancel request</Text></TouchableOpacity> : null}<TouchableOpacity style={s.homeButton} onPress={goToHome} activeOpacity={0.78}><Text style={s.homeText}>{hindi ? "होम पर जाएं" : "Continue to home"}</Text><Text style={s.arrow}>›</Text></TouchableOpacity><Text style={s.footerNote}>{hindi ? "खोज बैकग्राउंड में जारी रहेगी" : "The search will continue in the background"}</Text></View>
     </SafeAreaView>
   );
 }
@@ -81,5 +83,5 @@ const s = StyleSheet.create({
   title: { color: colors.ink, fontSize: 24, lineHeight: 31, fontWeight: "800", textAlign: "center", marginTop: 2 }, subtitle: { color: colors.muted, fontSize: 12, lineHeight: 19, textAlign: "center", marginTop: 9, paddingHorizontal: 13 },
   progressCard: { width: "100%", backgroundColor: "#FFFFFF", borderRadius: 17, borderWidth: 1, borderColor: "#E8DED5", padding: 16, marginTop: 25, ...shadow }, progressHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, progressTitle: { color: colors.ink, fontSize: 12, fontWeight: "800" }, progressCount: { color: colors.primary, fontSize: 10, fontWeight: "800" }, track: { height: 4, borderRadius: 2, backgroundColor: "#EEE7E1", marginTop: 13, marginBottom: 14, overflow: "hidden" }, trackFill: { height: 4, borderRadius: 2, backgroundColor: colors.primary }, step: { flexDirection: "row", alignItems: "center", marginTop: 10 }, stepDone: { width: 25, height: 25, borderRadius: 13, backgroundColor: colors.greenSoft, alignItems: "center", justifyContent: "center" }, stepDoneText: { color: colors.green, fontSize: 10, fontWeight: "800" }, stepActive: { width: 25, height: 25, borderRadius: 13, borderWidth: 1, borderColor: "#D8AAA4", alignItems: "center", justifyContent: "center" }, stepPulse: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary }, stepCopy: { flex: 1, marginLeft: 10 }, stepTitle: { color: "#4A423C", fontSize: 10, fontWeight: "800" }, stepText: { color: colors.muted, fontSize: 8, marginTop: 2 },
   info: { width: "100%", flexDirection: "row", alignItems: "center", backgroundColor: "#F2EEE9", borderRadius: 12, padding: 12, marginTop: 14 }, infoMark: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: "#AA9B90", color: "#84776D", textAlign: "center", textAlignVertical: "center", fontSize: 9, fontWeight: "800" }, infoText: { flex: 1, color: "#71675F", fontSize: 9, lineHeight: 14, marginLeft: 9 }, checked: { color: "#A2978F", fontSize: 8, marginTop: 12 },
-  footer: { paddingHorizontal: 20, paddingBottom: 10, alignItems: "center" }, homeButton: { width: "100%", height: 51, borderRadius: 12, backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center" }, homeText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" }, arrow: { color: "#FFFFFF", fontSize: 23, marginLeft: 10, marginTop: -2 }, footerNote: { color: colors.muted, fontSize: 8, marginTop: 8 },
+  footer: { paddingHorizontal: 20, paddingBottom: 10, alignItems: "center" }, cancelButton: { paddingVertical: 9, marginBottom: 4 }, cancelText: { color: "#A44747", fontSize: 13, fontWeight: "700" }, homeButton: { width: "100%", height: 51, borderRadius: 12, backgroundColor: colors.primary, flexDirection: "row", alignItems: "center", justifyContent: "center" }, homeText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" }, arrow: { color: "#FFFFFF", fontSize: 23, marginLeft: 10, marginTop: -2 }, footerNote: { color: colors.muted, fontSize: 8, marginTop: 8 },
 });

@@ -21,20 +21,21 @@ export default function ChoosePanditsScreen({ route, navigation }) {
   const fetchNearbyPandits = useCallback(async (refresh = false) => {
     refresh ? setRefreshing(true) : setLoading(true); setError("");
     try {
-      const response = await fetch(`${API_URL}/pandits/nearby?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}&radius=50`);
+      const params = new URLSearchParams({ lat: String(latitude), lng: String(longitude), radius: "50", poojaTypeId: String(pooja?.id || ""), bookingDate: String(bookingDate || ""), bookingTime: String(bookingTime || "") });
+      const response = await fetch(`${API_URL}/pandits/nearby?${params.toString()}`);
       const json = await response.json();
       if (!response.ok || !json.success) throw new Error(json.message || "Unable to find pandits.");
       setPandits(Array.isArray(json.data) ? json.data : []);
     } catch (requestError) { setPandits([]); setError(requestError.message || (hindi ? "पंडित खोज नहीं सके।" : "Unable to find nearby pandits.")); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [hindi, latitude, longitude]);
+  }, [hindi, latitude, longitude, pooja?.id, bookingDate, bookingTime]);
 
   useEffect(() => { fetchNearbyPandits(); }, [fetchNearbyPandits]);
 
   const visiblePandits = useMemo(() => [...pandits].sort((a, b) => {
     if (sort === "nearest") return Number(a.distance_km || 999) - Number(b.distance_km || 999);
     if (sort === "experience") return Number(b.experience_years || 0) - Number(a.experience_years || 0);
-    return Number(b.rating || 0) - Number(a.rating || 0) || Number(a.distance_km || 999) - Number(b.distance_km || 999);
+    return Number(b.ranking_score || 0) - Number(a.ranking_score || 0);
   }), [pandits, sort]);
 
   const togglePandit = (id) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length < 10 ? [...current, id] : current);
@@ -88,7 +89,7 @@ export default function ChoosePanditsScreen({ route, navigation }) {
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F8F5F0" }, list: { paddingHorizontal: 17 }, intro: { paddingTop: 5, paddingBottom: 14 }, eyebrow: { color: colors.primary, fontSize: 8, fontWeight: "800", letterSpacing: 1.4 }, title: { color: colors.ink, fontSize: 26, lineHeight: 33, fontWeight: "800", marginTop: 5 }, subtitle: { color: colors.muted, fontSize: 10, lineHeight: 16, marginTop: 4 },
+  screen: { flex: 1, backgroundColor: "#F8F5F0" }, list: { paddingHorizontal: 17 }, intro: { paddingTop: 5, paddingBottom: 14 }, eyebrow: { color: colors.primary, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 }, title: { color: colors.ink, fontSize: 29, lineHeight: 36, fontWeight: "800", marginTop: 5 }, subtitle: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 4 },
   locationStrip: { height: 57, borderRadius: 13, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5DAD1", paddingHorizontal: 11, flexDirection: "row", alignItems: "center" }, locationMark: { width: 34, height: 34, borderRadius: 10, backgroundColor: "#F0E5E1", alignItems: "center", justifyContent: "center" }, locationMarkText: { color: colors.primary, fontSize: 18 }, locationCopy: { flex: 1, marginLeft: 9 }, locationLabel: { color: colors.muted, fontSize: 7, fontWeight: "800", letterSpacing: 0.8 }, location: { color: "#504741", fontSize: 9, fontWeight: "700", marginTop: 3 }, nearbyCount: { color: colors.green, backgroundColor: colors.greenSoft, overflow: "hidden", borderRadius: 9, paddingHorizontal: 7, paddingVertical: 5, fontSize: 8, fontWeight: "800" },
   toolbar: { marginTop: 13, marginBottom: 4 }, sorts: { flexDirection: "row", gap: 6 }, sort: { height: 31, borderRadius: 16, borderWidth: 1, borderColor: "#E1D6CC", backgroundColor: "#FBF9F6", paddingHorizontal: 11, alignItems: "center", justifyContent: "center" }, activeSort: { backgroundColor: colors.primary, borderColor: colors.primary }, sortText: { color: "#81766E", fontSize: 8, fontWeight: "700" }, activeSortText: { color: "#FFFFFF" }, autoSelect: { alignSelf: "flex-end", marginTop: 9 }, autoSelectText: { color: colors.primary, fontSize: 8, fontWeight: "800" },
   card: { backgroundColor: "#FFFFFF", borderRadius: 17, borderWidth: 1, borderColor: "#E6DCD3", padding: 14, marginTop: 10, overflow: "hidden", ...shadow }, selectedCard: { borderColor: "#A85651", backgroundColor: "#FFFBF9" }, disabledCard: { opacity: 0.55 }, bestBadge: { position: "absolute", top: 0, left: 0, backgroundColor: "#E8D6B9", borderBottomRightRadius: 10, paddingHorizontal: 9, paddingVertical: 5 }, bestText: { color: "#7C5825", fontSize: 6, fontWeight: "800", letterSpacing: 0.6 }, cardTop: { flexDirection: "row", alignItems: "center", marginTop: 4 }, avatar: { width: 49, height: 49, borderRadius: 25, backgroundColor: "#EEE4DD", alignItems: "center", justifyContent: "center" }, avatarText: { color: colors.primary, fontSize: 17, fontWeight: "800" }, verifyBadge: { position: "absolute", right: -1, bottom: -1, width: 17, height: 17, borderRadius: 9, backgroundColor: colors.green, borderWidth: 2, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" }, verifyText: { color: "#FFFFFF", fontSize: 7, fontWeight: "800" }, panditCopy: { flex: 1, marginLeft: 11 }, nameRow: { flexDirection: "row", alignItems: "center" }, name: { color: colors.ink, fontSize: 13, fontWeight: "800", maxWidth: "68%" }, verifiedLabel: { color: colors.green, fontSize: 7, fontWeight: "800", backgroundColor: colors.greenSoft, overflow: "hidden", borderRadius: 7, paddingHorizontal: 5, paddingVertical: 3, marginLeft: 6 }, experience: { color: colors.muted, fontSize: 8, marginTop: 4 }, checkbox: { width: 28, height: 28, borderRadius: 9, borderWidth: 1, borderColor: "#D6CAC0", alignItems: "center", justifyContent: "center" }, checked: { backgroundColor: colors.primary, borderColor: colors.primary }, checkboxText: { color: "#9B8E84", fontSize: 15, fontWeight: "600" }, checkboxTextChecked: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },

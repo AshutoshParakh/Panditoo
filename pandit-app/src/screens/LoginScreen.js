@@ -103,7 +103,8 @@ export default function LoginScreen({ navigation }) {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <Text style={styles.appIcon}>🕉️</Text>
+            <View style={styles.brandPill}><Text style={styles.brandMark}>ॐ</Text><Text style={styles.brandName}>PANDITOO PARTNER</Text></View>
+            <Text style={styles.welcome}>Your sacred services,{"\n"}beautifully managed.</Text>
             <Text style={styles.title}>{t("login.title")}</Text>
             <Text style={styles.subtitle}>{t("login.subtitle")}</Text>
           </View>
@@ -190,6 +191,7 @@ export default function LoginScreen({ navigation }) {
               </View>
             )}
           </View>
+          <View style={styles.trustRow}><Text style={styles.trustText}>✓ Secure OTP</Text><Text style={styles.trustDot}>•</Text><Text style={styles.trustText}>Verified partner access</Text></View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -197,9 +199,16 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  brandPill: { flexDirection: "row", alignItems: "center", backgroundColor: "#7C2929", borderRadius: 22, paddingHorizontal: 13, paddingVertical: 8, marginBottom: 20 },
+  brandMark: { color: "#FFD88A", fontSize: 19, fontWeight: "900", marginRight: 8 },
+  brandName: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
+  welcome: { color: "#332822", fontSize: 30, lineHeight: 37, fontWeight: "900", textAlign: "center", marginBottom: 19 },
+  trustRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 18 },
+  trustText: { color: "#786B62", fontSize: 11, fontWeight: "700" },
+  trustDot: { color: "#B9AAA0", marginHorizontal: 9 },
   container: {
     flex: 1,
-    backgroundColor: "#fff7ed",
+    backgroundColor: "#F7F1EA",
   },
   keyboardView: {
     flex: 1,
@@ -211,14 +220,14 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 20,
   },
   appIcon: {
     fontSize: 60,
     marginBottom: 10,
   },
   title: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "800",
     color: "#7c2d12",
     textAlign: "center",
@@ -232,13 +241,15 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "#ffffff",
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 24,
     shadowColor: "#7c2d12",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: "#E7D7C8",
   },
   label: {
     fontSize: 16,
@@ -284,7 +295,7 @@ const styles = StyleSheet.create({
   },
   button: {
     height: 56,
-    backgroundColor: "#d97706",
+    backgroundColor: "#8F3030",
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",

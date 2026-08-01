@@ -12,6 +12,7 @@ export default function BookingSuccessScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={s.screen}>
+      <TouchableOpacity accessibilityLabel="Go back" onPress={() => navigation.goBack()} style={{ position: "absolute", top: 12, left: 16, zIndex: 5, width: 42, height: 42, borderRadius: 21, backgroundColor: "white", alignItems: "center", justifyContent: "center" }}><Text style={{ color: colors.primary, fontSize: 28 }}>‹</Text></TouchableOpacity>
       <View style={s.content}>
         <View style={s.hero}>
           <View style={s.iconRing}><View style={s.iconCircle}><Text style={s.sendMark}>✓</Text></View></View>

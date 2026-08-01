@@ -28,7 +28,7 @@ const runBatchTimeoutJob = async () => {
     // 2. Fetch bookings
     const bookingsResult = await query(
       `
-        SELECT b.id, b.user_id, b.latitude, b.longitude, b.current_batch, b.current_radius_km, b.updated_at
+        SELECT b.id, b.user_id, b.pooja_type_id, b.booking_date, b.booking_time, b.latitude, b.longitude, b.current_batch, b.current_radius_km, b.updated_at
         FROM bookings b
         WHERE b.status = 'pending'
           AND b.prepaid_status = 'paid'
@@ -89,7 +89,8 @@ const runBatchTimeoutJob = async () => {
             booking.longitude,
             nextRadiusKm,
             excludedPanditIds,
-            10000
+            10,
+            { poojaTypeId: booking.pooja_type_id, bookingDate: booking.booking_date, bookingTime: booking.booking_time }
           );
 
           if (nextPandits.length > 0) {

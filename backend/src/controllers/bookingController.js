@@ -7,6 +7,7 @@ const { lockPanditCalendar } = require("../utils/calendar");
 const crypto = require("crypto");
 const { sendOTP } = require("../utils/otpService");
 const { getBookingConfig, getPriceQuote } = require("../services/pricingService");
+const { getNextBatch } = require("../utils/geo");
 
 const serviceOtpHash = (bookingId, phase, otp) =>
   crypto.createHash("sha256").update(`${bookingId}:${phase}:${otp}`).digest("hex");
@@ -131,18 +132,30 @@ const createBooking = async (req, res, next) => {
           FROM pandits
           WHERE id = ANY($1::uuid[])
             AND is_active = TRUE
+            AND is_verified = TRUE
+            AND NOT EXISTS (SELECT 1 FROM pandit_unavailable_dates unavailable WHERE unavailable.pandit_id=pandits.id AND unavailable.unavailable_date=$2::date)
+            AND NOT EXISTS (
+              SELECT 1 FROM bookings busy
+              WHERE busy.confirmed_pandit_id = pandits.id
+                AND busy.booking_date = $2::date
+                AND busy.booking_time = $3::time
+                AND busy.status = 'confirmed'
+            )
+          ORDER BY array_position($1::uuid[], id)
         `,
-        [validUuidPandits]
+        [validUuidPandits, booking_date, booking_time]
       );
       panditIdsToAssign = panditResult.rows.map((r) => r.id);
     }
 
     // Fallback if no valid UUID pandits exist in DB
     if (panditIdsToAssign.length === 0) {
-      const activePanditsRes = await client.query(
-        `SELECT id FROM pandits WHERE is_active = TRUE LIMIT 3`
-      );
-      panditIdsToAssign = activePanditsRes.rows.map((r) => r.id);
+      const rankedFallback = await getNextBatch(latitude, longitude, 15, [], 3, {
+        poojaTypeId: pooja_type_id,
+        bookingDate: booking_date,
+        bookingTime: booking_time,
+      });
+      panditIdsToAssign = rankedFallback.map((pandit) => pandit.id);
     }
 
     const quote = await getPriceQuote({ poojaTypeId: pooja_type_id, bookingDate: booking_date, couponCode: coupon_code });
@@ -393,15 +406,45 @@ const listBookingsForUser = async (req, res, next) => {
 const cancelBookingByUser = async (req, res, next) => {
   const client = await pool.connect();
   try {
+    const allowedReasons = ["change_of_plan", "pandit_asked_to_cancel", "wrong_date_or_location", "duplicate_booking", "other"];
+    const reason = String(req.body?.reason || "").trim();
+    const note = String(req.body?.note || "").trim();
+    if (!allowedReasons.includes(reason)) {
+      return res.status(400).json({ success: false, message: "Please select a cancellation reason." });
+    }
+    if (reason === "other" && note.length < 3) {
+      return res.status(400).json({ success: false, message: "Please tell us why you are cancelling." });
+    }
+    if (note.length > 500) {
+      return res.status(400).json({ success: false, message: "Cancellation note must be 500 characters or fewer." });
+    }
     await client.query("BEGIN");
+    const bookingResult = await client.query(
+      `SELECT status, total_price::float AS total_price, prepaid_amount::float AS prepaid_amount, prepaid_status
+       FROM bookings WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+      [req.params.bookingId, req.user.id]
+    );
+    if (bookingResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, message: "Booking not found." });
+    }
+    const booking = bookingResult.rows[0];
+    if (booking.status !== "pending") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "Cancellation is unavailable after a pandit accepts the request." });
+    }
+    if (booking.prepaid_status === "paid" && Number(booking.prepaid_amount) >= Number(booking.total_price)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "Fully paid bookings cannot be cancelled in the app. Please contact support." });
+    }
     const result = await client.query(
       `UPDATE bookings
-       SET status = 'cancelled', updated_at = NOW()
+       SET status = 'cancelled', cancellation_reason = $3, cancellation_note = NULLIF($4, ''), cancelled_at = NOW(), updated_at = NOW()
        WHERE id = $1
          AND user_id = $2
-         AND status IN ('pending', 'confirmed')
+         AND status = 'pending'
        RETURNING *`,
-      [req.params.bookingId, req.user.id]
+      [req.params.bookingId, req.user.id, reason, note]
     );
 
     if (result.rowCount === 0) {
@@ -474,6 +517,12 @@ const handlePanditBookingResponse = async (req, res, next) => {
 
       await client.query("COMMIT");
       return res.status(200).json({ success: true, message: "response_recorded" });
+    }
+
+    const unavailableResult = await client.query("SELECT 1 FROM pandit_unavailable_dates WHERE pandit_id=$1 AND unavailable_date=$2::date", [panditId, bookingRequest.booking_date]);
+    if (unavailableResult.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "You marked this date unavailable. Update your calendar before accepting." });
     }
 
     const bookingUpdateResult = await client.query(

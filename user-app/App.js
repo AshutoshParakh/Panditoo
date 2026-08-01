@@ -25,6 +25,7 @@ import WaitingForPanditScreen from "./src/screens/WaitingForPanditScreen";
 import BookingConfirmedScreen from "./src/screens/BookingConfirmedScreen";
 import RateExperienceScreen from "./src/screens/RateExperienceScreen";
 import AccountDetailScreen from "./src/screens/AccountDetailScreen";
+import CancelBookingScreen from "./src/screens/CancelBookingScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -220,6 +221,7 @@ function AppContent() {
           component={AccountDetailScreen}
           options={({ route }) => ({ title: route.params?.title || "Account" })}
         />
+        <Stack.Screen name="CancelBooking" component={CancelBookingScreen} options={{ title: "Cancel Booking" }} />
         <Stack.Screen
           name="RateExperience"
           component={RateExperienceScreen}

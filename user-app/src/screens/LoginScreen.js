@@ -151,18 +151,23 @@ export default function LoginScreen({ navigation }) {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          <TouchableOpacity accessibilityLabel="Go back" style={styles.back} onPress={() => navigation.goBack()}><Text style={styles.backText}>‹</Text></TouchableOpacity>
           <View style={styles.header}>
+            <View style={styles.brand}><Text style={styles.brandOm}>ॐ</Text><Text style={styles.brandText}>PANDITOO</Text></View>
+            {!isRegistering ? <Text style={styles.welcome}>Begin your ceremony{"\n"}with confidence.</Text> : null}
             <Text style={styles.title}>
               {isRegistering ? "Create Profile" : t("login.title")}
             </Text>
+            <Text style={styles.subtitle}>{isRegistering ? "Just a few details to complete your account." : "Sign in securely with your mobile number."}</Text>
           </View>
 
           <View style={styles.form}>
+            <View style={styles.stepRow}><Text style={styles.step}>{isRegistering ? "FINAL STEP" : otpSent ? "STEP 2 OF 2" : "STEP 1 OF 2"}</Text><Text style={styles.secure}>✓ SECURE</Text></View>
             {!isRegistering ? (
               <>
                 <Text style={styles.label}>{t("login.phoneLabel")}</Text>
-                <TextInput
-                  style={styles.input}
+                <View style={styles.phoneBox}><Text style={styles.prefix}>+91</Text><View style={styles.verticalRule}/><TextInput
+                  style={styles.phoneInput}
                   placeholder={t("login.phonePlaceholder")}
                   placeholderTextColor="#a08f80"
                   keyboardType="phone-pad"
@@ -170,7 +175,7 @@ export default function LoginScreen({ navigation }) {
                   value={phone}
                   onChangeText={(txt) => setPhone(txt.replace(/[^0-9]/g, ""))}
                   editable={!otpSent && !loading}
-                />
+                /></View>
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -189,7 +194,7 @@ export default function LoginScreen({ navigation }) {
                   <View style={styles.otpSection}>
                     <Text style={styles.label}>{t("login.otpLabel")}</Text>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, styles.otpInput]}
                       placeholder={t("login.otpPlaceholder")}
                       placeholderTextColor="#a08f80"
                       keyboardType="number-pad"
@@ -305,6 +310,7 @@ export default function LoginScreen({ navigation }) {
               </View>
             )}
           </View>
+          <View style={styles.trustRow}><Text style={styles.trustText}>Verified pandits</Text><Text style={styles.trustDot}>•</Text><Text style={styles.trustText}>Secure payments</Text><Text style={styles.trustDot}>•</Text><Text style={styles.trustText}>Private details</Text></View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -312,37 +318,56 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  back: { position: "absolute", top: 14, left: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#E8DCD1", zIndex: 2 },
+  backText: { color: "#8F3030", fontSize: 29, marginTop: -3 },
+  brand: { flexDirection: "row", alignItems: "center", backgroundColor: "#8F3030", borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 20 },
+  brandOm: { color: "#FFD98C", fontSize: 19, fontWeight: "900", marginRight: 8 },
+  brandText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 1.6 },
+  welcome: { color: "#302823", fontSize: 31, lineHeight: 38, fontWeight: "900", textAlign: "center", marginBottom: 17 },
+  subtitle: { color: "#877A70", fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 6 },
+  stepRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
+  step: { color: "#8F3030", fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
+  secure: { color: "#27845D", fontSize: 9, fontWeight: "900", letterSpacing: .8 },
+  phoneBox: { height: 58, flexDirection: "row", alignItems: "center", backgroundColor: "#FCFAF7", borderWidth: 1.5, borderColor: "#DCC9BA", borderRadius: 14, paddingHorizontal: 14, marginBottom: 16 },
+  prefix: { color: "#8F3030", fontSize: 17, fontWeight: "900" },
+  verticalRule: { width: 1, height: 25, backgroundColor: "#DED2C8", marginHorizontal: 12 },
+  phoneInput: { flex: 1, height: 56, color: "#352D28", fontSize: 18, fontWeight: "700" },
+  trustRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: 18 },
+  trustText: { color: "#8B7F76", fontSize: 10, fontWeight: "700" },
+  trustDot: { color: "#BDAFA5", marginHorizontal: 7 },
   container: {
     flex: 1,
-    backgroundColor: "#f7efe5",
+    backgroundColor: "#F7F1EA",
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
+    padding: 20,
     justifyContent: "center",
   },
   header: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 22,
   },
   title: {
-    fontSize: 26,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#6a1b1a",
     textAlign: "center",
   },
   form: {
     backgroundColor: "#ffffff",
     borderRadius: 20,
-    padding: 24,
+    padding: 21,
     shadowColor: "#6a1b1a",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: "#E7D9CD",
   },
   label: {
     fontSize: 16,
@@ -368,13 +393,14 @@ const styles = StyleSheet.create({
     color: "#3a2d21",
     marginBottom: 16,
   },
+  otpInput: { textAlign: "center", letterSpacing: 8, fontSize: 23, fontWeight: "800", borderColor: "#CDAFA4" },
   button: {
     height: 52,
-    backgroundColor: "#d97706",
-    borderRadius: 12,
+    backgroundColor: "#8F3030",
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#d97706",
+    shadowColor: "#8F3030",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 6,

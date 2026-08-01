@@ -513,6 +513,11 @@ export function BookingsPage() {
               <Descriptions.Item label="Payout Status">{selectedBooking.pandit_payout_status}</Descriptions.Item>
               <Descriptions.Item label="Total Price">{formatCurrency(selectedBooking.total_price)}</Descriptions.Item>
               <Descriptions.Item label="Platform Cut">{formatCurrency(selectedBooking.prepaid_amount)}</Descriptions.Item>
+              {selectedBooking.status === "cancelled" ? <>
+                <Descriptions.Item label="Cancellation Reason">{String(selectedBooking.cancellation_reason || "Not provided").replaceAll("_", " ")}</Descriptions.Item>
+                <Descriptions.Item label="Cancelled At">{selectedBooking.cancelled_at ? formatDateTime(selectedBooking.cancelled_at) : "-"}</Descriptions.Item>
+                <Descriptions.Item label="Customer Note" span={2}>{selectedBooking.cancellation_note || "No additional note"}</Descriptions.Item>
+              </> : null}
               <Descriptions.Item label="Pandit Payout">{formatCurrency(selectedBooking.pandit_payout_amount)}</Descriptions.Item>
               <Descriptions.Item label="Manual Attention">{selectedBooking.flagged_for_manual_intervention ? "Yes" : "No"}</Descriptions.Item>
               <Descriptions.Item label="Address" span={2}>{selectedBooking.address}</Descriptions.Item>

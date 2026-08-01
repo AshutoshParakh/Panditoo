@@ -1,0 +1,4 @@
+ALTER TABLE bookings
+  ADD COLUMN IF NOT EXISTS cancellation_reason VARCHAR(80),
+  ADD COLUMN IF NOT EXISTS cancellation_note TEXT,
+  ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;

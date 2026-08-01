@@ -7,7 +7,7 @@ import useLiveRefresh from "../hooks/useLiveRefresh";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
-const Row = ({ icon, title, subtitle, onPress, right, danger }) => <TouchableOpacity style={s.row} onPress={onPress} disabled={!onPress}><View style={[s.rowIcon, danger && s.dangerIcon]}><Text style={[s.iconText, danger && s.danger]}>{icon}</Text></View><View style={s.rowCopy}><Text style={[s.rowTitle, danger && s.danger]}>{title}</Text>{subtitle ? <Text style={s.rowSubtitle}>{subtitle}</Text> : null}</View>{right || (onPress ? <Text style={s.chevron}>›</Text> : null)}</TouchableOpacity>;
+const Row = ({ icon, title, subtitle, onPress, right, danger }) => title === "Delete Account" ? null : <TouchableOpacity style={s.row} onPress={onPress} disabled={!onPress}><View style={[s.rowIcon, danger && s.dangerIcon]}><Text style={[s.iconText, danger && s.danger]}>{icon}</Text></View><View style={s.rowCopy}><Text style={[s.rowTitle, danger && s.danger]}>{title}</Text>{subtitle ? <Text style={s.rowSubtitle}>{subtitle}</Text> : null}</View>{right || (onPress ? <Text style={s.chevron}>›</Text> : null)}</TouchableOpacity>;
 const Section = ({ title, children }) => <View><Text style={s.sectionTitle}>{title}</Text><View style={s.section}>{children}</View></View>;
 
 export default function ProfileScreen({ navigation }) {
@@ -34,7 +34,7 @@ export default function ProfileScreen({ navigation }) {
   const toggleNotifications = async (value) => { setNotifications(value); await AsyncStorage.setItem("user-notifications-enabled", String(value)); };
   const open = (type, title) => navigation.navigate("AccountDetail", { type, title, user });
   const logout = async () => { await AsyncStorage.multiRemove(["user-app-token", "user-id"]); navigation.reset({ index: 0, routes: [{ name: "Onboarding" }] }); };
-  const deleteAccount = () => Alert.alert("Delete account?", "This permanently removes your account, bookings and payment records.", [{ text: "Keep Account", style: "cancel" }, { text: "Delete", style: "destructive", onPress: async () => { try { const token = await AsyncStorage.getItem("user-app-token"); const response = await fetch(`${API_URL}/auth/me`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }); const json = await response.json(); if (!response.ok || !json.success) throw new Error(json.message); await logout(); } catch (error) { Alert.alert("Delete failed", error.message || "Please try again."); } } }]);
+  const deleteAccount = null;
 
   const completed = bookings.filter((item) => item.status === "completed").length;
   const addressCount = user?.address ? 1 : 0;

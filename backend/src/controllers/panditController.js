@@ -1,6 +1,33 @@
 const { findPanditsWithinRadius, haversineDistanceKm } = require("../utils/geo");
 const { pool, query } = require("../config/db");
 
+const getPanditAvailability = async (req, res, next) => {
+  try {
+    if (req.pandit.id !== req.params.id) return res.status(403).json({ success: false, message: "Forbidden" });
+    const result = await query("SELECT to_char(unavailable_date, 'YYYY-MM-DD') AS unavailable_date FROM pandit_unavailable_dates WHERE pandit_id = $1 AND unavailable_date >= CURRENT_DATE ORDER BY unavailable_date", [req.pandit.id]);
+    return res.json({ success: true, data: result.rows.map((row) => row.unavailable_date) });
+  } catch (error) { return next(error); }
+};
+
+const updatePanditAvailability = async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    if (req.pandit.id !== req.params.id) return res.status(403).json({ success: false, message: "Forbidden" });
+    const dates = [...new Set(Array.isArray(req.body.dates) ? req.body.dates : [])];
+    if (dates.length > 180 || dates.some((date) => !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < new Date().toISOString().slice(0, 10))) {
+      return res.status(400).json({ success: false, message: "Choose up to 180 valid future dates." });
+    }
+    const conflicts = await client.query(`SELECT booking_date FROM bookings WHERE confirmed_pandit_id=$1 AND status='confirmed' AND booking_date=ANY($2::date[])`, [req.pandit.id, dates]);
+    if (conflicts.rowCount) return res.status(409).json({ success: false, message: `You already have a confirmed booking on ${String(conflicts.rows[0].booking_date).slice(0, 10)}.` });
+    await client.query("BEGIN");
+    await client.query("DELETE FROM pandit_unavailable_dates WHERE pandit_id=$1 AND unavailable_date >= CURRENT_DATE", [req.pandit.id]);
+    if (dates.length) await client.query("INSERT INTO pandit_unavailable_dates(pandit_id, unavailable_date) SELECT $1, unnest($2::date[]) ON CONFLICT DO NOTHING", [req.pandit.id, dates]);
+    await client.query("COMMIT");
+    return res.json({ success: true, data: dates.sort() });
+  } catch (error) { try { await client.query("ROLLBACK"); } catch (_) {} return next(error); }
+  finally { client.release(); }
+};
+
 const listNearbyPandits = async (req, res, next) => {
   try {
     const lat = Number(req.query.lat);
@@ -14,7 +41,11 @@ const listNearbyPandits = async (req, res, next) => {
       });
     }
 
-    const pandits = await findPanditsWithinRadius(lat, lng, radius);
+    const pandits = await findPanditsWithinRadius(lat, lng, radius, {
+      poojaTypeId: req.query.poojaTypeId || null,
+      bookingDate: req.query.bookingDate || null,
+      bookingTime: req.query.bookingTime || null,
+    });
 
     return res.status(200).json({
       success: true,
@@ -307,6 +338,8 @@ const updatePanditProfile = async (req, res, next) => {
 };
 
 module.exports = {
+  getPanditAvailability,
+  updatePanditAvailability,
   listNearbyPandits,
   listPanditRequests,
   getPanditEarnings,
