@@ -6,6 +6,7 @@ import {
   DashboardOutlined,
   LogoutOutlined,
   ReadOutlined,
+  ShareAltOutlined,
   SafetyCertificateOutlined,
   TeamOutlined,
   UserOutlined,
@@ -38,6 +39,7 @@ const menuItems = [
   { key: "/payments", icon: <CreditCardOutlined />, label: <NavLink to="/payments">Payments</NavLink> },
   { key: "/withdrawals", icon: <WalletOutlined />, label: <NavLink to="/withdrawals">Withdrawals</NavLink> },
   { key: "/pricing-control", icon: <CalendarOutlined />, label: <NavLink to="/pricing-control">Pricing Control</NavLink> },
+  { key: "/referrals", icon: <ShareAltOutlined />, label: <NavLink to="/referrals">Referrals</NavLink> },
   { key: "/reports", icon: <BookOutlined />, label: <NavLink to="/reports">Reports</NavLink> },
 ];
 
@@ -50,6 +52,7 @@ const routeTitleMap = {
   "/payments": "Payments",
   "/withdrawals": "Withdrawals",
   "/pricing-control": "Pricing Control",
+  "/referrals": "Referral Campaigns",
   "/reports": "Reports",
 };
 

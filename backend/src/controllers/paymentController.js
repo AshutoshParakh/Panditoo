@@ -10,7 +10,7 @@ const { creditCapturedOrder } = require("./creditController");
 const activateBookingAfterPrepayment = async (client, { bookingId, orderId, paymentId, paymentStatus = "paid" }) => {
   const paymentResult = await client.query(
     `
-      SELECT p.id, p.booking_id, p.type, p.status, b.user_id, b.prepaid_status, b.coupon_id, b.promotional_offer_id
+      SELECT p.id, p.booking_id, p.type, p.status, b.user_id, b.prepaid_status, b.coupon_id, b.promotional_offer_id, b.referral_campaign_id
       FROM payments p
       INNER JOIN bookings b ON b.id = p.booking_id
       WHERE p.booking_id = $1
@@ -69,6 +69,14 @@ const activateBookingAfterPrepayment = async (client, { bookingId, orderId, paym
       `UPDATE promotional_offers SET used_count=used_count+1,updated_at=NOW() WHERE id=$1`,
       [payment.promotional_offer_id]
     );
+  }
+  if (payment.referral_campaign_id) {
+    const referralUse = await client.query(
+      `UPDATE referral_campaigns SET used_count=used_count+1,updated_at=NOW()
+       WHERE id=$1 AND is_active=TRUE AND (usage_limit IS NULL OR used_count < usage_limit) RETURNING id`,
+      [payment.referral_campaign_id]
+    );
+    if (!referralUse.rowCount) throw new Error("Referral campaign usage limit has been reached");
   }
 
   const panditRows = await client.query(

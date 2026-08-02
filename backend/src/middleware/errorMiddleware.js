@@ -5,7 +5,10 @@ const notFoundHandler = (req, res, next) => {
 };
 
 const errorHandler = (err, _req, res, _next) => {
-  const statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
+  const requestedStatus = Number(err.status || err.statusCode);
+  const statusCode = res.statusCode && res.statusCode !== 200
+    ? res.statusCode
+    : requestedStatus >= 400 && requestedStatus < 600 ? requestedStatus : 500;
 
   console.error("Error handler caught:", err);
 

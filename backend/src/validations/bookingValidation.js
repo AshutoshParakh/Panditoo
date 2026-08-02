@@ -9,6 +9,7 @@ const createBookingSchema = Joi.object({
   longitude: Joi.number().allow(null, "").optional(),
   selected_pandit_ids: Joi.array().items(Joi.string()).optional(),
   coupon_code: Joi.string().trim().max(40).allow("").optional(),
+  referral_code: Joi.string().trim().max(40).allow("").optional(),
 });
 
 const panditResponseSchema = Joi.object({

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -41,8 +42,19 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [source, setSource] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const applyLink = (url) => {
+      const match = String(url || "").match(/[?&]ref=([^&]+)/i);
+      if (match) setReferralCode(decodeURIComponent(match[1]).toUpperCase().replace(/[^A-Z0-9_-]/g, ""));
+    };
+    Linking.getInitialURL().then(applyLink).catch(() => {});
+    const subscription = Linking.addEventListener("url", ({ url }) => applyLink(url));
+    return () => subscription.remove();
+  }, []);
 
   const handleSendOtp = async () => {
     setError("");
@@ -121,7 +133,7 @@ export default function LoginScreen({ navigation }) {
       const res = await fetchWithTimeout(`${API_URL}/auth/user/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, address, source }),
+        body: JSON.stringify({ name, phone, email, address, source, referral_code: referralCode.trim() || undefined }),
       });
       const data = await res.json();
       if (res.ok && data.success && data.token) {
@@ -276,6 +288,17 @@ export default function LoginScreen({ navigation }) {
                   editable={!loading}
                 />
 
+                <Text style={styles.subLabel}>Referral code (Optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Example: TEMPLE01"
+                  placeholderTextColor="#a08f80"
+                  autoCapitalize="characters"
+                  value={referralCode}
+                  onChangeText={(value) => setReferralCode(value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))}
+                  editable={!loading}
+                />
+
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                 <TouchableOpacity
@@ -299,6 +322,7 @@ export default function LoginScreen({ navigation }) {
                     setEmail("");
                     setAddress("");
                     setSource("");
+                    setReferralCode("");
                     setError("");
                   }}
                   disabled={loading}

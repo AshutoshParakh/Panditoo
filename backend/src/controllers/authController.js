@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
 const { signAuthToken } = require("../utils/jwt");
+const { getReferralCampaign } = require("../services/referralService");
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const OTP_RATE_LIMIT_MAX = Number(process.env.OTP_RATE_LIMIT_MAX || 3);
@@ -165,27 +166,31 @@ const verifyOtpForActor = async (phone, otp, actorType) => {
 
 const registerUser = async (req, res, next) => {
   try {
-    const { name, phone, email, address, source, preferred_language } = req.body;
+    const { name, phone, email, address, source, preferred_language, referral_code } = req.body;
     const normalizedPhone = normalizePhone(phone);
 
     if (!name || !normalizedPhone || normalizedPhone.length < 10) {
       return res.status(400).json({ success: false, message: "Name and valid phone number are required" });
     }
 
+    const referral = referral_code ? await getReferralCampaign(referral_code) : null;
     const userResult = await query(
       `
-        INSERT INTO users (name, phone, email, address, source, preferred_language)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users (name, phone, email, address, source, preferred_language, referral_campaign_id, referral_code, referred_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $7::uuid IS NOT NULL THEN NOW() ELSE NULL END)
         ON CONFLICT (phone)
         DO UPDATE SET 
           name = EXCLUDED.name, 
           email = EXCLUDED.email, 
           address = EXCLUDED.address, 
           source = EXCLUDED.source,
+          referral_campaign_id = COALESCE(users.referral_campaign_id, EXCLUDED.referral_campaign_id),
+          referral_code = COALESCE(users.referral_code, EXCLUDED.referral_code),
+          referred_at = COALESCE(users.referred_at, EXCLUDED.referred_at),
           updated_at = NOW()
-        RETURNING id, name, phone, email, address, source
+        RETURNING id, name, phone, email, address, source, referral_code
       `,
-      [name, normalizedPhone, email || null, address || null, source || null, preferred_language || "en"]
+      [name, normalizedPhone, email || null, address || null, source || null, preferred_language || "en", referral?.id || null, referral?.code || null]
     );
 
     const user = userResult.rows[0];

@@ -40,7 +40,6 @@ export default function LoginScreen({ navigation }) {
   const [otpSent, setOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [testMode, setTestMode] = useState(false);
 
   const handleSendOtp = async () => {
     setError("");
@@ -59,16 +58,10 @@ export default function LoginScreen({ navigation }) {
       if (res.ok && data.success) {
         setOtpSent(true);
       } else {
-        // Fallback for easy testing
-        setError(data.message || "Failed to send OTP. Test mode enabled.");
-        setOtpSent(true);
-        setTestMode(true);
+        setError(data.message || "Failed to send OTP. Please try again.");
       }
     } catch (err) {
-      console.warn("Pandit Auth send-otp failed, using fallback:", err.message);
-      setError("Server connection failed. Test mode enabled.");
-      setOtpSent(true);
-      setTestMode(true);
+      setError(err.name === "AbortError" ? "Request timed out. Check your connection and try again." : "Unable to connect to the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -157,10 +150,6 @@ export default function LoginScreen({ navigation }) {
                 />
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                {testMode ? (
-                  <Text style={styles.testNote}>{t("login.testModeNote")}</Text>
-                ) : null}
-
                 <TouchableOpacity
                   style={[styles.button, styles.verifyBtn]}
                   onPress={handleVerifyOtp}
@@ -320,18 +309,6 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontWeight: "600",
     marginBottom: 16,
-  },
-  testNote: {
-    fontSize: 12,
-    color: "#d97706",
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 16,
-    backgroundColor: "#fffbeb",
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#fef3c7",
   },
   otpSection: {
     gap: 6,

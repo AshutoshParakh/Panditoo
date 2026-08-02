@@ -30,10 +30,15 @@ const {
 const router = express.Router();
 const pricingAdmin = require("../controllers/pricingAdminController");
 const walletAdmin = require("../controllers/walletAdminController");
+const referrals = require("../controllers/referralController");
 
 router.use(authenticateAdmin);
 
 router.get("/dashboard-stats", getDashboardStats);
+router.get("/referrals", referrals.listCampaigns);
+router.post("/referrals", referrals.saveCampaign);
+router.put("/referrals/:id", referrals.saveCampaign);
+router.patch("/referrals/:id", referrals.toggleCampaign);
 router.get("/pricing-control", pricingAdmin.getPricingControl);
 router.get("/withdrawals", walletAdmin.listWithdrawals);
 router.patch("/withdrawals/:id", walletAdmin.processWithdrawal);

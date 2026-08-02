@@ -68,6 +68,7 @@ const createBooking = async (req, res, next) => {
       address,
       selected_pandit_ids,
       coupon_code,
+      referral_code,
     } = req.body;
 
     const latVal = Number(req.body.latitude);
@@ -158,7 +159,9 @@ const createBooking = async (req, res, next) => {
       panditIdsToAssign = rankedFallback.map((pandit) => pandit.id);
     }
 
-    const quote = await getPriceQuote({ poojaTypeId: pooja_type_id, bookingDate: booking_date, couponCode: coupon_code });
+    const inheritedReferral = referral_code ? null : await client.query("SELECT referral_code FROM users WHERE id=$1", [req.user.id]);
+    const effectiveReferralCode = referral_code || inheritedReferral?.rows[0]?.referral_code || null;
+    const quote = await getPriceQuote({ poojaTypeId: pooja_type_id, bookingDate: booking_date, couponCode: coupon_code, referralCode: effectiveReferralCode });
     const basePrice = quote.total_price;
     const prepaidAmount = quote.payable_now;
     const panditPayoutAmount = Number((Number(quote.payout_basis_amount || basePrice) * 0.7).toFixed(2));
@@ -187,9 +190,12 @@ const createBooking = async (req, res, next) => {
           coupon_code,
           payment_percent,
           promotional_offer_id,
-          payout_basis_amount
+          payout_basis_amount,
+          referral_campaign_id,
+          referral_code,
+          referral_discount_amount
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending', $11, $12, $13, $14, $15, $16, $17)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending', $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         RETURNING id, user_id, pooja_type_id, status, total_price, prepaid_amount, prepaid_status, pandit_payout_amount, pandit_payout_status, created_at
       `,
       [
@@ -210,6 +216,9 @@ const createBooking = async (req, res, next) => {
         quote.payment_percent,
         quote.promotional_offer?.id || null,
         quote.payout_basis_amount,
+        quote.referral?.id || null,
+        quote.referral?.code || null,
+        quote.referral ? quote.discount_amount : 0,
       ]
     );
 
