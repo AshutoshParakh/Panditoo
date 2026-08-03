@@ -386,7 +386,7 @@ const getCurrentUser = async (req, res, next) => {
 
     const tableName = actorType === "user" ? "users" : "pandits";
     const fields = actorType === "user"
-      ? "id, name, phone, email, address, source"
+      ? "id, name, phone, email, address, source, referral_code, NOT EXISTS (SELECT 1 FROM bookings b WHERE b.user_id = users.id) AS referral_eligible"
       : "id, name, phone, email, address, source, specializations, experience_years, service_radius_km, latitude, longitude, bank_account_details, id_proof_url, is_verified, is_active";
     const result = await query(
       `SELECT ${fields} FROM ${tableName} WHERE id = $1 LIMIT 1`,

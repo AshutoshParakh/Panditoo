@@ -159,8 +159,13 @@ const createBooking = async (req, res, next) => {
       panditIdsToAssign = rankedFallback.map((pandit) => pandit.id);
     }
 
-    const inheritedReferral = referral_code ? null : await client.query("SELECT referral_code FROM users WHERE id=$1", [req.user.id]);
-    const effectiveReferralCode = referral_code || inheritedReferral?.rows[0]?.referral_code || null;
+    // Lock the customer row so two simultaneous drafts cannot both claim the first-booking benefit.
+    const userReferral = await client.query("SELECT referral_code FROM users WHERE id=$1 FOR UPDATE", [req.user.id]);
+    const priorBooking = await client.query("SELECT 1 FROM bookings WHERE user_id=$1 LIMIT 1", [req.user.id]);
+    const isFirstBooking = priorBooking.rowCount === 0;
+    const attributedCode = userReferral.rows[0]?.referral_code || null;
+    // A campaign captured during signup is authoritative. Referral discounts are never reusable.
+    const effectiveReferralCode = isFirstBooking ? (attributedCode || referral_code || null) : null;
     const quote = await getPriceQuote({ poojaTypeId: pooja_type_id, bookingDate: booking_date, couponCode: coupon_code, referralCode: effectiveReferralCode });
     const basePrice = quote.total_price;
     const prepaidAmount = quote.payable_now;

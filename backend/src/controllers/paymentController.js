@@ -10,7 +10,8 @@ const { creditCapturedOrder } = require("./creditController");
 const activateBookingAfterPrepayment = async (client, { bookingId, orderId, paymentId, paymentStatus = "paid" }) => {
   const paymentResult = await client.query(
     `
-      SELECT p.id, p.booking_id, p.type, p.status, b.user_id, b.prepaid_status, b.coupon_id, b.promotional_offer_id, b.referral_campaign_id
+      SELECT p.id, p.booking_id, p.type, p.status, b.user_id, b.prepaid_status, b.coupon_id, b.promotional_offer_id,
+        b.referral_campaign_id, b.total_price
       FROM payments p
       INNER JOIN bookings b ON b.id = p.booking_id
       WHERE p.booking_id = $1
@@ -77,6 +78,15 @@ const activateBookingAfterPrepayment = async (client, { bookingId, orderId, paym
       [payment.referral_campaign_id]
     );
     if (!referralUse.rowCount) throw new Error("Referral campaign usage limit has been reached");
+    await client.query(
+      `INSERT INTO referral_commissions
+        (referral_campaign_id, booking_id, user_id, commission_percent, eligible_amount, commission_amount)
+       SELECT c.id, $2, $3, c.commission_percent, $4,
+         ROUND(($4::numeric * c.commission_percent / 100), 2)
+       FROM referral_campaigns c WHERE c.id=$1
+       ON CONFLICT (booking_id) DO NOTHING`,
+      [payment.referral_campaign_id, bookingId, payment.user_id, payment.total_price]
+    );
   }
 
   const panditRows = await client.query(

@@ -48,8 +48,20 @@ export default function ConfirmBookingScreen({ route, navigation }) {
   const paymentPercent = Number(quote?.payment_percent || 30);
 
   useEffect(() => {
-    AsyncStorage.getItem("user-app-token").then(setToken).catch(() => {});
-    fetch(`${API_URL}/pricing/quote`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate}) }).then(r=>r.json()).then(j=>{if(j.success)setQuote(j.data);}).catch(()=>{});
+    const loadQuote = async () => {
+      const authToken = await AsyncStorage.getItem("user-app-token");
+      setToken(authToken);
+      let savedReferral = "";
+      if (authToken) {
+        const profileResponse = await fetch(`${API_URL}/auth/me`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const profile = await profileResponse.json();
+        savedReferral = profile?.user?.referral_eligible ? (profile?.user?.referral_code || "") : "";
+      }
+      const response = await fetch(`${API_URL}/pricing/quote`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate,referral_code:savedReferral||undefined}) });
+      const payload = await response.json();
+      if (payload.success) { setQuote(payload.data); setReferralCode(savedReferral); }
+    };
+    loadQuote().catch(()=>{});
   }, []);
 
   const applyCoupon = async () => { try { setCouponLoading(true); setPaymentError(""); const response=await fetch(`${API_URL}/pricing/quote`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate,coupon_code:couponCode.trim()})});const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message||"Invalid coupon");setReferralCode("");setQuote(payload.data);} catch(error){setPaymentError(error.message);} finally{setCouponLoading(false);} };
