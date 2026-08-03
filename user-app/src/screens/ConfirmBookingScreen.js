@@ -39,7 +39,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
   const [couponCode, setCouponCode] = useState("");
   const [quote, setQuote] = useState(null);
   const [couponLoading, setCouponLoading] = useState(false);
-  const [referralCode, setReferralCode] = useState("");
+  const [automaticReferralCode, setAutomaticReferralCode] = useState("");
 
   // Get total price and calculate prepayment
   const totalPrice = Number(quote?.total_price ?? pooja?.base_price ?? 0);
@@ -59,13 +59,12 @@ export default function ConfirmBookingScreen({ route, navigation }) {
       }
       const response = await fetch(`${API_URL}/pricing/quote`, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate,referral_code:savedReferral||undefined}) });
       const payload = await response.json();
-      if (payload.success) { setQuote(payload.data); setReferralCode(savedReferral); }
+      if (payload.success) { setQuote(payload.data); setAutomaticReferralCode(savedReferral); }
     };
     loadQuote().catch(()=>{});
   }, []);
 
-  const applyCoupon = async () => { try { setCouponLoading(true); setPaymentError(""); const response=await fetch(`${API_URL}/pricing/quote`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate,coupon_code:couponCode.trim()})});const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message||"Invalid coupon");setReferralCode("");setQuote(payload.data);} catch(error){setPaymentError(error.message);} finally{setCouponLoading(false);} };
-  const applyReferral = async () => { try { setCouponLoading(true); setPaymentError(""); const response=await fetch(`${API_URL}/pricing/quote`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate,referral_code:referralCode.trim()})});const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message||"Invalid referral code");setCouponCode("");setQuote(payload.data);} catch(error){setPaymentError(error.message);} finally{setCouponLoading(false);} };
+  const applyCoupon = async () => { try { setCouponLoading(true); setPaymentError(""); const response=await fetch(`${API_URL}/pricing/quote`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pooja_type_id:pooja?.id,booking_date:bookingDate,coupon_code:couponCode.trim(),referral_code:automaticReferralCode||undefined})});const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message||"Invalid coupon");setQuote(payload.data);} catch(error){setPaymentError(error.message);} finally{setCouponLoading(false);} };
 
   const handlePayAndConfirm = async () => {
     setLoading(true);
@@ -96,7 +95,7 @@ export default function ConfirmBookingScreen({ route, navigation }) {
             longitude,
             selected_pandit_ids: selectedPanditIds,
             coupon_code: quote?.coupon?.code || undefined,
-            referral_code: quote?.referral?.code || referralCode.trim() || undefined,
+            referral_code: quote?.referral?.code || undefined,
           }),
         });
 
@@ -307,7 +306,9 @@ export default function ConfirmBookingScreen({ route, navigation }) {
         </View>
 
         <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>{hindi ? "भुगतान सारांश" : "Payment summary"}</Text><Text style={styles.sectionSubtitle}>{hindi ? "स्पष्ट और सुरक्षित भुगतान" : "Simple, transparent and secure"}</Text></View></View>
-        {quote?.promotional_offer?<View style={styles.offerCard}><Text style={styles.offerTitle}>🎉 {quote.promotional_offer.title}</Text><Text style={styles.offerText}>{quote.promotional_offer.subtitle || "Special offer applied automatically"} · You save {formatMoney(quote.discount_amount)}. Full online payment applies.</Text></View>:<View style={styles.couponCard}><Text style={styles.couponTitle}>Referral or campaign code</Text><View style={styles.couponRow}><TextInput value={referralCode} onChangeText={(value)=>setReferralCode(value.toUpperCase().replace(/[^A-Z0-9_-]/g,""))} autoCapitalize="characters" placeholder="TEMPLE01" style={styles.couponInput}/><TouchableOpacity disabled={!referralCode.trim()||couponLoading} onPress={applyReferral} style={styles.couponButton}>{couponLoading?<ActivityIndicator color="#FFF"/>:<Text style={styles.couponButtonText}>Apply</Text>}</TouchableOpacity></View>{quote?.referral?<Text style={styles.couponSuccess}>✓ {quote.referral.code} tracked{quote.discount_amount ? ` · You save ${formatMoney(quote.discount_amount)}` : ""}</Text>:null}<Text style={[styles.couponTitle,{marginTop:14}]}>Coupon code</Text><View style={styles.couponRow}><TextInput value={couponCode} onChangeText={(value)=>setCouponCode(value.toUpperCase())} autoCapitalize="characters" placeholder="ENTER COUPON" style={styles.couponInput}/><TouchableOpacity disabled={!couponCode.trim()||couponLoading} onPress={applyCoupon} style={styles.couponButton}><Text style={styles.couponButtonText}>Apply</Text></TouchableOpacity></View>{quote?.coupon?<Text style={styles.couponSuccess}>✓ {quote.coupon.code} applied · You save {formatMoney(quote.discount_amount)}</Text>:null}</View>}
+        {quote?.promotional_offer?<View style={styles.offerCard}><Text style={styles.offerTitle}>🎉 {quote.promotional_offer.title}</Text><Text style={styles.offerText}>{quote.promotional_offer.subtitle || "Special offer applied automatically"} · You save {formatMoney(quote.discount_amount)}. Full online payment applies.</Text></View>:null}
+        {quote?.referral?<View style={styles.offerCard}><Text style={styles.offerTitle}>Referred by {quote.referral.name}</Text>{quote.discount_amount&&!quote.promotional_offer&&!quote.coupon?<Text style={styles.offerText}>First booking offer applied automatically · You save {formatMoney(quote.discount_amount)}</Text>:null}</View>:null}
+        <View style={styles.couponCard}><Text style={styles.couponTitle}>Coupon code</Text><View style={styles.couponRow}><TextInput value={couponCode} onChangeText={(value)=>setCouponCode(value.toUpperCase())} autoCapitalize="characters" placeholder="ENTER COUPON" style={styles.couponInput}/><TouchableOpacity disabled={!couponCode.trim()||couponLoading} onPress={applyCoupon} style={styles.couponButton}>{couponLoading?<ActivityIndicator color="#FFF"/>:<Text style={styles.couponButtonText}>Apply</Text>}</TouchableOpacity></View>{quote?.coupon?<Text style={styles.couponSuccess}>✓ {quote.coupon.code} applied · You save {formatMoney(quote.discount_amount)}</Text>:null}</View>
         <View style={styles.paymentCard}>
           {quote?.festival_title?<Text style={styles.festivalBadge}>{quote.festival_title} special pricing</Text>:null}
           <View style={styles.priceRow}><Text style={styles.priceLabel}>{hindi ? "कुल पूजा शुल्क" : "Total ceremony fee"}</Text><View style={{alignItems:"flex-end"}}>{quote?.list_price>totalPrice?<Text style={styles.listPrice}>{formatMoney(quote.list_price)}</Text>:null}<Text style={styles.priceVal}>{formatMoney(totalPrice)}</Text></View></View>

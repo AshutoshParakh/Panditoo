@@ -31,11 +31,9 @@ const getPriceQuote = async ({ poojaTypeId, bookingDate, couponCode, referralCod
   );
   const offer = offerResult.rows[0] || null;
   let coupon = null;
-  let referral = null;
+  const referral = referralCode ? await getReferralCampaign(referralCode) : null;
   let discountAmount = 0;
-  if (couponCode && referralCode) throw Object.assign(new Error("Use either a coupon or a referral code, not both"), { status: 400 });
   if (couponCode && offer) throw Object.assign(new Error("Coupons cannot be combined with an active promotional offer"), { status: 400 });
-  if (referralCode && offer) throw Object.assign(new Error("Referral discounts cannot be combined with an active promotional offer"), { status: 400 });
   if (offer) {
     const promotionalPrice = offer.offer_type === "percent" ? salePrice * (1 - Number(offer.offer_value) / 100) : Number(offer.offer_value);
     discountAmount = Math.max(0, Number((salePrice - Math.min(salePrice, promotionalPrice)).toFixed(2)));
@@ -51,8 +49,7 @@ const getPriceQuote = async ({ poojaTypeId, bookingDate, couponCode, referralCod
     discountAmount = coupon.discount_type === "percent" ? salePrice * Number(coupon.discount_value) / 100 : Number(coupon.discount_value);
     if (coupon.max_discount_amount != null) discountAmount = Math.min(discountAmount, Number(coupon.max_discount_amount));
     discountAmount = Math.min(salePrice, Number(discountAmount.toFixed(2)));
-  } else if (referralCode) {
-    referral = await getReferralCampaign(referralCode);
+  } else if (referral) {
     discountAmount = calculateReferralDiscount(referral, salePrice);
   }
   const totalPrice = Number((salePrice - discountAmount).toFixed(2));
