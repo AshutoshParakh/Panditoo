@@ -1,9 +1,17 @@
 const { Pool } = require("pg");
 
 const connectionString = process.env.DATABASE_URL;
+const useSsl =
+  process.env.PGSSLMODE === "require" ||
+  /amazonaws\.com/i.test(connectionString || "");
 
 const pool = new Pool({
   connectionString,
+  ssl: useSsl
+    ? {
+        rejectUnauthorized: false,
+      }
+    : undefined,
 });
 
 const query = (text, params) => pool.query(text, params);
