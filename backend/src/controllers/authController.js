@@ -50,7 +50,7 @@ const logOtpIssued = ({ actorType, phone, otp }) => {
   console.log("========================================================\n");
 };
 
-const DEMO_TEST_PHONES = ["9999999999", "9876543210", "9131042937"];
+const DEMO_TEST_PHONES = ["9999999999", "9876543210"];
 const isTestPhone = (phone) => DEMO_TEST_PHONES.includes(normalizePhone(phone));
 
 const sendOtpForActor = async (phone, actorType) => {

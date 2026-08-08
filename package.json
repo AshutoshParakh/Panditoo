@@ -9,6 +9,8 @@
     "admin-dashboard"
   ],
   "scripts": {
+    "build": "npm --prefix user-web-app run build",
+    "build:web": "npm --prefix user-web-app run build",
     "dev:backend": "npm --workspace backend run dev",
     "dev:user": "npm --workspace user-app start",
     "dev:pandit": "npm --workspace pandit-app start",
