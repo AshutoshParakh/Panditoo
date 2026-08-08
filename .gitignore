@@ -13,6 +13,7 @@
 **/.env.development.local
 **/.env.test.local
 **/.env.production.local
+**/firebase-service-account.json
 
 # Logs and tests
 **/coverage/
