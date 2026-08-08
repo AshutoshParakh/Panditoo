@@ -7,7 +7,7 @@ import {
   CustomerProfile,
 } from "./CustomerFeatures";
 
-const POLICY_VERSION = "2026-08-07";
+const POLICY_VERSION = "2026-08-09";
 const icons = { home: "⌂", explore: "✦", bookings: "▣", profile: "◉" };
 const expectations = [
   [
@@ -28,12 +28,12 @@ const expectations = [
 ];
 const legal = {
   terms: [
-    "Terms & Conditions",
-    "Panditoo is a technology marketplace connecting adult customers with independent pandit providers. You must provide accurate booking information and a safe, lawful venue. Prices, payment timing, cancellation and refund terms shown before confirmation apply to the booking. Providers must supply truthful credentials, perform accepted services with reasonable care and protect customer information. Verification is not a guarantee of availability or a religious outcome. Misuse, fraud, harassment, payment evasion and unlawful conduct are prohibited. Mandatory Indian consumer rights are not limited.",
+    "Customer Terms & Conditions",
+    "Panditoo is a technology marketplace connecting adult customers with independent pandit providers. Operated by Panditoo (Indore, Madhya Pradesh). You must provide accurate booking information and a safe, lawful venue. Prices, payment timing, cancellation and refund terms shown before confirmation apply to the booking. Providers must supply truthful credentials, perform accepted services with reasonable care and protect customer information. Verification is not a guarantee of availability or a religious outcome. Misuse, fraud, harassment, payment evasion and unlawful conduct are prohibited. Mandatory Indian consumer rights are preserved. Disputes are subject to courts/tribunals located at Indore, Madhya Pradesh. Contact: panditoo.official@gmail.com | Phone: +91 9407474774, +91 9166477214.",
   ],
   privacy: [
-    "Privacy Policy",
-    "Panditoo uses account, booking, location, payment-reference and support information to authenticate users, arrange ceremonies, process payments and refunds, prevent fraud, communicate updates and meet legal obligations. Necessary information is shared with eligible or confirmed pandits and contracted providers such as hosting, OTP, payment and notification services. We do not sell personal data. You may request access, correction, erasure, consent withdrawal or grievance redressal through the operator contact published before launch. Some financial, booking and dispute records may be retained where law requires.",
+    "Customer Privacy Policy",
+    "Panditoo (Indore, Madhya Pradesh) uses account, booking, location, payment-reference and support information to authenticate users, arrange ceremonies, process payments/refunds via Razorpay, prevent fraud, communicate updates and meet legal obligations under Indian law. Necessary information is shared with eligible or confirmed pandits and contracted providers (hosting, OTP, payment, SMS). We do not sell personal data. You may request access, correction, erasure, consent withdrawal or grievance redressal by emailing panditoo.official@gmail.com or contacting our Nodal & Grievance Officer at +91 9407474774. Financial, booking and dispute records are retained as required by Indian law.",
   ],
 };
 
