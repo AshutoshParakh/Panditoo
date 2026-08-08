@@ -147,6 +147,62 @@ const sendOTP = async (phone, otp, options = {}) => {
     }
   }
 
+  if (provider === "fast2sms") {
+    const apiKey = process.env.FAST2SMS_API_KEY;
+    if (!apiKey) {
+      console.error("[OTP:fast2sms] Missing FAST2SMS_API_KEY in environment variables");
+      return { success: false, error: "Missing FAST2SMS_API_KEY" };
+    }
+    try {
+      const cleanPhone = formattedPhone.replace(/\D/g, "").slice(-10);
+      const response = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+        method: "POST",
+        headers: {
+          "authorization": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          route: "otp",
+          variables_values: otp,
+          numbers: cleanPhone,
+        }),
+      });
+      const data = await response.json();
+      if (!data.return) {
+        console.error("[OTP:fast2sms] Error from Fast2SMS:", data);
+        return { success: false, error: data.message || "Fast2SMS error" };
+      }
+      console.log(`[OTP:fast2sms] Successfully sent SMS to ${cleanPhone}`);
+      return { success: true, provider };
+    } catch (error) {
+      console.error("[OTP:fast2sms] Failed to send Fast2SMS:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  if (provider === "2factor") {
+    const apiKey = process.env.TWO_FACTOR_API_KEY;
+    if (!apiKey) {
+      console.error("[OTP:2factor] Missing TWO_FACTOR_API_KEY in environment variables");
+      return { success: false, error: "Missing TWO_FACTOR_API_KEY" };
+    }
+    try {
+      const cleanPhone = formattedPhone.replace(/\D/g, "").slice(-10);
+      const url = `https://2factor.in/API/V1/${apiKey}/SMS/+91${cleanPhone}/${otp}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.Status !== "Success") {
+        console.error("[OTP:2factor] Error from 2Factor:", data);
+        return { success: false, error: data.Details || "2Factor error" };
+      }
+      console.log(`[OTP:2factor] Successfully sent SMS to ${cleanPhone}`);
+      return { success: true, provider };
+    } catch (error) {
+      console.error("[OTP:2factor] Failed to send 2Factor SMS:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
   return { success: false, error: `Unknown provider: ${provider}` };
 };
 
