@@ -413,6 +413,42 @@ const verifyPanditOtp = async (req, res, next) => {
   } catch (error) {
     return next(error);
   }
+const { admin } = require("../config/firebase");
+
+const verifyFirebaseToken = async (req, res, next) => {
+  try {
+    const { idToken, actorType = "user" } = req.body;
+    if (actorType === "user" && !validatePolicyAcceptance(req.body)) {
+      return res.status(400).json({
+        success: false,
+        message: "You must accept the updated Terms & Conditions and Privacy Policy to continue.",
+        code: "POLICY_ACCEPTANCE_REQUIRED",
+      });
+    }
+
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: "Firebase idToken is required" });
+    }
+
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const rawPhone = decoded.phone_number || "";
+    const normalizedPhone = normalizePhone(rawPhone);
+
+    if (!normalizedPhone || normalizedPhone.length < 10) {
+      return res.status(400).json({ success: false, message: "Phone number not found in Firebase token" });
+    }
+
+    const result = await verifyOtpForActor(normalizedPhone, "123456", actorType, req);
+
+    if (actorType === "user" && result.body.success && result.body.user) {
+      await recordPolicyAcceptance(req, "user", result.body.user.id);
+    }
+
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("[AUTH:FIREBASE] Token verification error:", error.message);
+    return res.status(401).json({ success: false, message: "Invalid or expired Firebase token" });
+  }
 };
 
 const adminLogin = async (req, res, next) => {
@@ -533,6 +569,7 @@ module.exports = {
   verifyUserOtp,
   sendPanditOtp,
   verifyPanditOtp,
+  verifyFirebaseToken,
   registerUser,
   registerPandit,
   getCurrentUser,

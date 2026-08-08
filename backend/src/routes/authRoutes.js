@@ -5,6 +5,7 @@ const {
   verifyUserOtp,
   sendPanditOtp,
   verifyPanditOtp,
+  verifyFirebaseToken,
   registerUser,
   registerPandit,
   getCurrentUser,
@@ -38,6 +39,7 @@ const router = express.Router();
 
 router.post("/user/send-otp", sendUserOtp);
 router.post("/user/verify-otp", verifyUserOtp);
+router.post("/verify-firebase", verifyFirebaseToken);
 router.post("/user/register", registerUser);
 router.post("/pandit/send-otp", sendPanditOtp);
 router.post("/pandit/verify-otp", verifyPanditOtp);
