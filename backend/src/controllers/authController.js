@@ -5,6 +5,7 @@ const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
 const { signAuthToken } = require("../utils/jwt");
 const { getReferralCampaign } = require("../services/referralService");
+const { admin } = require("../config/firebase");
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const OTP_RATE_LIMIT_MAX = Number(process.env.OTP_RATE_LIMIT_MAX || 3);
@@ -413,7 +414,7 @@ const verifyPanditOtp = async (req, res, next) => {
   } catch (error) {
     return next(error);
   }
-const { admin } = require("../config/firebase");
+};
 
 const verifyFirebaseToken = async (req, res, next) => {
   try {
