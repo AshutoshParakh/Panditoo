@@ -106,7 +106,7 @@ const sendOtpForActor = async (phone, actorType) => {
   };
 };
 
-const verifyOtpForActor = async (phone, otp, actorType) => {
+const verifyOtpForActor = async (phone, otp, actorType, req = null) => {
   const normalizedPhone = normalizePhone(phone);
   const normalizedOtp = String(otp || "").trim();
 
@@ -174,9 +174,10 @@ const verifyOtpForActor = async (phone, otp, actorType) => {
 
   const entity = existingResult.rows[0];
 
-  if (actorType === "user" && req.body.referral_code) {
+  const referralCode = req?.body?.referral_code;
+  if (actorType === "user" && referralCode) {
     try {
-      const referral = await getReferralCampaign(req.body.referral_code);
+      const referral = await getReferralCampaign(referralCode);
       if (referral) {
         await query(
           `UPDATE users
@@ -369,7 +370,7 @@ const sendUserOtp = async (req, res, next) => {
 
 const verifyUserOtp = async (req, res, next) => {
   try {
-    const result = await verifyOtpForActor(req.body.phone, req.body.otp, "user");
+    const result = await verifyOtpForActor(req.body.phone, req.body.otp, "user", req);
     return res.status(result.status).json(result.body);
   } catch (error) {
     return next(error);
@@ -387,7 +388,7 @@ const sendPanditOtp = async (req, res, next) => {
 
 const verifyPanditOtp = async (req, res, next) => {
   try {
-    const result = await verifyOtpForActor(req.body.phone, req.body.otp, "pandit");
+    const result = await verifyOtpForActor(req.body.phone, req.body.otp, "pandit", req);
     return res.status(result.status).json(result.body);
   } catch (error) {
     return next(error);

@@ -1227,83 +1227,17 @@ function LegalModal({ type, close, logout }) {
   );
 }
 
-function AppHeader({ tab, navigate, profile, logout, lang, setLang }) {
-  const path = typeof window !== "undefined" ? window.location.pathname : "/";
-  const isActive = (route) => {
-    if (route === "/dashboard") return path === "/dashboard";
-    if (route === "/poojas") return path === "/poojas" || path.startsWith("/pooja/");
-    if (route === "/pandits") return path === "/pandits";
-    if (route === "/how-it-works") return path === "/how-it-works";
-    if (route === "/about") return path === "/about";
-    return false;
-  };
+function AppHeader({ navigate, profile, logout, lang, setLang }) {
   return (
-    <header className="app-header">
-      <button className="brand-button" onClick={() => navigate("/dashboard")}>
-        <Brand />
-      </button>
-      <nav>
-        <button
-          className={isActive("/dashboard") || tab === "home" ? "active" : ""}
-          onClick={() => navigate("/dashboard")}
-        >
-          Dashboard
-        </button>
-        <button
-          className={isActive("/poojas") || tab === "explore" ? "active" : ""}
-          onClick={() => navigate("/poojas")}
-        >
-          Ceremonies
-        </button>
-        <button
-          className={isActive("/pandits") ? "active" : ""}
-          onClick={() => navigate("/pandits")}
-        >
-          Find pandits
-        </button>
-        <button
-          className={isActive("/how-it-works") ? "active" : ""}
-          onClick={() => navigate("/how-it-works")}
-        >
-          How it works
-        </button>
-        <button
-          className={isActive("/about") ? "active" : ""}
-          onClick={() => navigate("/about")}
-        >
-          About us
-        </button>
-        {setLang && (
-          <button
-            className="language"
-            onClick={() => setLang(lang === "en" ? "hi" : "en")}
-          >
-            {lang === "en" ? "हिं" : "EN"}
-          </button>
-        )}
-      </nav>
-      <div
-        className="account-pill"
-        onClick={() => navigate("/account")}
-        style={{ cursor: "pointer" }}
-      >
-        <span>{profile?.name?.[0] || "U"}</span>
-        <div>
-          <b>{profile?.name || "Devotee"}</b>
-          <small>My account</small>
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (logout) logout();
-            else navigate("/account");
-          }}
-          title="My account"
-        >
-          ↗
-        </button>
-      </div>
-    </header>
+    <PublicHeader
+      authed={true}
+      profile={profile}
+      logout={logout}
+      lang={lang}
+      setLang={setLang}
+      navigate={navigate}
+      subpage={true}
+    />
   );
 }
 function SectionTitle({ eyebrow, title, action }) {
