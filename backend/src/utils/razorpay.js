@@ -8,6 +8,7 @@ const getRazorpayConfig = () => ({
 });
 
 const isStubMode = () => {
+  if (process.env.PAYMENT_DUMMY_MODE === "true") return true;
   const { keyId, keySecret } = getRazorpayConfig();
   return !keyId || !keySecret || keyId.startsWith("your-") || keySecret.startsWith("your-");
 };

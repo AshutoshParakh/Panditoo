@@ -37,21 +37,46 @@ const legal = {
   ],
 };
 
-const refFromUrl = () =>
-  new URLSearchParams(location.search)
-    .get("ref")
-    ?.toUpperCase()
-    .replace(/[^A-Z0-9_-]/g, "") ||
-  localStorage.getItem("panditoo-ref") ||
-  "";
-const niceDate = (value) =>
-  value
-    ? new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      })
-    : "—";
+export const refFromUrl = () => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("ref") || params.get("referral") || params.get("referral_code") || params.get("code");
+    if (code) {
+      const clean = code.toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+      if (clean) {
+        localStorage.setItem("panditoo-ref", clean);
+        return clean;
+      }
+    }
+  } catch (_) {}
+  return localStorage.getItem("panditoo-ref") || "";
+};
+const niceDate = (value) => {
+  if (!value) return "—";
+  try {
+    if (value instanceof Date) {
+      if (isNaN(value.getTime())) return "—";
+      return value.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+    let str = String(value).trim();
+    if (str.includes("T")) str = str.split("T")[0];
+    else if (str.includes(" ")) str = str.split(" ")[0];
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const d = new Date(`${str}T00:00:00`);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      }
+    }
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+    return "—";
+  } catch (_) {
+    return "—";
+  }
+};
 const scrollToId = (id) =>
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
@@ -96,6 +121,9 @@ function ServiceUnavailable({ retry }) {
 }
 
 function PublicHeader({
+  authed = false,
+  profile = null,
+  logout,
   onLogin,
   lang,
   setLang,
@@ -105,13 +133,23 @@ function PublicHeader({
   subpage = false,
 }) {
   const [open, setOpen] = useState(false);
-  const go = (path) => {
-    navigate(path);
+  const path = typeof window !== "undefined" ? window.location.pathname : "/";
+  const isActive = (route) => {
+    if (route === "/dashboard") return path === "/dashboard";
+    if (route === "/") return path === "/";
+    if (route === "/poojas") return path === "/poojas" || path.startsWith("/pooja/");
+    if (route === "/pandits") return path === "/pandits";
+    if (route === "/how-it-works") return path === "/how-it-works";
+    if (route === "/about") return path === "/about";
+    return path === route;
+  };
+  const go = (p) => {
+    navigate(p);
     setOpen(false);
   };
   return (
     <header className={`site-header ${subpage ? "subpage" : ""}`}>
-      <button className="brand-button" onClick={() => go("/")}>
+      <button className="brand-button" onClick={() => go(authed ? "/dashboard" : "/")}>
         <Brand />
       </button>
       <button
@@ -122,22 +160,53 @@ function PublicHeader({
         {open ? "×" : "☰"}
       </button>
       <nav className={open ? "open" : ""}>
-        <button onClick={() => go("/poojas")}>Ceremonies</button>
-        <button onClick={() => go("/pandits")}>Find pandits</button>
-        <button onClick={() => go("/how-it-works")}>How it works</button>
-        <button onClick={() => go("/about")}>About us</button>
+        {authed && (
+          <button className={isActive("/dashboard") ? "active" : ""} onClick={() => go("/dashboard")}>
+            Dashboard
+          </button>
+        )}
+        <button className={isActive("/poojas") ? "active" : ""} onClick={() => go("/poojas")}>Ceremonies</button>
+        <button className={isActive("/pandits") ? "active" : ""} onClick={() => go("/pandits")}>Find pandits</button>
+        <button className={isActive("/how-it-works") ? "active" : ""} onClick={() => go("/how-it-works")}>How it works</button>
+        <button className={isActive("/about") ? "active" : ""} onClick={() => go("/about")}>About us</button>
         <button
           className="language"
           onClick={() => setLang(lang === "en" ? "hi" : "en")}
         >
           {lang === "en" ? "हिं" : "EN"}
         </button>
-        <button className="nav-login" onClick={onLogin}>
-          Sign in
-        </button>
-        <button className="nav-book" onClick={() => go("/poojas")}>
-          Book a pooja <span>↗</span>
-        </button>
+        {authed ? (
+          <div
+            className="account-pill"
+            onClick={() => go("/account")}
+            style={{ cursor: "pointer", marginLeft: "12px" }}
+          >
+            <span>{profile?.name?.[0] || "U"}</span>
+            <div>
+              <b>{profile?.name || "Devotee"}</b>
+              <small>My account</small>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (logout) logout();
+                else go("/account");
+              }}
+              title="My Account"
+            >
+              ↗
+            </button>
+          </div>
+        ) : (
+          <button className="nav-login" onClick={onLogin}>
+            Sign in
+          </button>
+        )}
+        {!authed && (
+          <button className="nav-book" onClick={() => go("/poojas")}>
+            Book a pooja <span>↗</span>
+          </button>
+        )}
       </nav>
     </header>
   );
@@ -190,6 +259,8 @@ function Landing({
   offers = [],
   onBook,
   onLogin,
+  authed,
+  profile,
   lang,
   setLang,
   openLegal,
@@ -200,6 +271,8 @@ function Landing({
   return (
     <div className="landing">
       <PublicHeader
+        authed={authed}
+        profile={profile}
         onLogin={onLogin}
         lang={lang}
         setLang={setLang}
@@ -486,11 +559,13 @@ function Landing({
   );
 }
 
-function PublicPage({ children, onLogin, lang, setLang, navigate }) {
+function PublicPage({ children, authed, profile, onLogin, lang, setLang, navigate }) {
   return (
     <div className="public-page">
       <PublicHeader
         subpage
+        authed={authed}
+        profile={profile}
         onLogin={onLogin}
         lang={lang}
         setLang={setLang}
@@ -1099,8 +1174,23 @@ function AuthModal({ close, done, openLegal }) {
   );
 }
 
-function LegalModal({ type, close }) {
+function LegalModal({ type, close, logout }) {
   const [title, copy] = legal[type];
+  const handleDelete = async () => {
+    if (!confirm("Permanently delete your Panditoo account? This cannot be undone.")) return;
+    try {
+      const token = localStorage.getItem("panditoo_token");
+      await fetch("/api/auth/me", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      close();
+      if (logout) logout();
+      else window.location.reload();
+    } catch (e) {
+      alert("Failed to delete account: " + e.message);
+    }
+  };
   return (
     <div className="modal-backdrop">
       <article className="legal-modal">
@@ -1110,7 +1200,21 @@ function LegalModal({ type, close }) {
         <p className="eyebrow">VERSION {POLICY_VERSION}</p>
         <h2>{title}</h2>
         <p>{copy}</p>
-        <p>
+        {type === "privacy" && (
+          <div style={{ marginTop: "20px", padding: "16px", background: "#fdf5f4", borderRadius: "8px", border: "1px dashed #e8b8b4" }}>
+            <b style={{ color: "#7a3e39", display: "block", marginBottom: "4px" }}>Account & Data Deletion</b>
+            <p style={{ fontSize: "12px", color: "#8a524d", margin: "0 0 12px" }}>
+              You have the right to request permanent deletion of your profile and booking records under our privacy rules.
+            </p>
+            <button
+              style={{ background: "#a33a31", color: "#fff", border: 0, padding: "8px 14px", borderRadius: "4px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
+              onClick={handleDelete}
+            >
+              Permanently delete my account
+            </button>
+          </div>
+        )}
+        <p style={{ marginTop: "16px" }}>
           This in-app summary must be completed with the verified legal entity,
           registered address, grievance officer, contact details and final
           commercial rules before public launch.
@@ -1123,12 +1227,15 @@ function LegalModal({ type, close }) {
   );
 }
 
-function AppHeader({ tab, navigate, profile, logout }) {
-  const routes = {
-    home: "/dashboard",
-    explore: "/poojas",
-    bookings: "/bookings",
-    profile: "/account",
+function AppHeader({ tab, navigate, profile, logout, lang, setLang }) {
+  const path = typeof window !== "undefined" ? window.location.pathname : "/";
+  const isActive = (route) => {
+    if (route === "/dashboard") return path === "/dashboard";
+    if (route === "/poojas") return path === "/poojas" || path.startsWith("/pooja/");
+    if (route === "/pandits") return path === "/pandits";
+    if (route === "/how-it-works") return path === "/how-it-works";
+    if (route === "/about") return path === "/about";
+    return false;
   };
   return (
     <header className="app-header">
@@ -1136,24 +1243,65 @@ function AppHeader({ tab, navigate, profile, logout }) {
         <Brand />
       </button>
       <nav>
-        {Object.keys(icons).map((k) => (
+        <button
+          className={isActive("/dashboard") || tab === "home" ? "active" : ""}
+          onClick={() => navigate("/dashboard")}
+        >
+          Dashboard
+        </button>
+        <button
+          className={isActive("/poojas") || tab === "explore" ? "active" : ""}
+          onClick={() => navigate("/poojas")}
+        >
+          Ceremonies
+        </button>
+        <button
+          className={isActive("/pandits") ? "active" : ""}
+          onClick={() => navigate("/pandits")}
+        >
+          Find pandits
+        </button>
+        <button
+          className={isActive("/how-it-works") ? "active" : ""}
+          onClick={() => navigate("/how-it-works")}
+        >
+          How it works
+        </button>
+        <button
+          className={isActive("/about") ? "active" : ""}
+          onClick={() => navigate("/about")}
+        >
+          About us
+        </button>
+        {setLang && (
           <button
-            className={tab === k ? "active" : ""}
-            onClick={() => navigate(routes[k])}
-            key={k}
+            className="language"
+            onClick={() => setLang(lang === "en" ? "hi" : "en")}
           >
-            <i>{icons[k]}</i>
-            {k}
+            {lang === "en" ? "हिं" : "EN"}
           </button>
-        ))}
+        )}
       </nav>
-      <div className="account-pill">
+      <div
+        className="account-pill"
+        onClick={() => navigate("/account")}
+        style={{ cursor: "pointer" }}
+      >
         <span>{profile?.name?.[0] || "U"}</span>
         <div>
           <b>{profile?.name || "Devotee"}</b>
           <small>My account</small>
         </div>
-        <button onClick={logout}>↗</button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (logout) logout();
+            else navigate("/account");
+          }}
+          title="My account"
+        >
+          ↗
+        </button>
       </div>
     </header>
   );
@@ -1915,6 +2063,8 @@ export default function App() {
     (p) => String(p.id) === decodeURIComponent(poojaId || ""),
   );
   const shell = {
+    authed,
+    profile: data.profile,
     onLogin: () => (authed ? navigate("/dashboard") : setAuthOpen(true)),
     lang,
     setLang,
@@ -1967,6 +2117,8 @@ export default function App() {
           navigate={navigate}
           profile={data.profile}
           logout={logout}
+          lang={lang}
+          setLang={setLang}
         />
         <main>
           {loading && !data.profile ? (
@@ -2041,7 +2193,7 @@ export default function App() {
         />
       )}{" "}
       {legalType && (
-        <LegalModal type={legalType} close={() => setLegalType(null)} />
+        <LegalModal type={legalType} logout={logout} close={() => setLegalType(null)} />
       )}
     </>
   );

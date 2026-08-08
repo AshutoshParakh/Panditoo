@@ -129,7 +129,13 @@ export default function ConfirmBookingScreen({ route, navigation }) {
 
       const { razorpay_order, razorpay_key_id } = orderData;
       if (razorpay_order.is_stub) {
-        throw new Error("Online payment is not configured. Please contact support.");
+        console.log("[DUMMY PAYMENT] Auto-verifying test order:", razorpay_order.id);
+        await verifyPayment(
+          currentBooking.id,
+          razorpay_order.id,
+          `pay_stub_${Date.now()}`,
+          "stub_signature"
+        );
       } else {
         // Attempt to open Razorpay payment gateway
         try {

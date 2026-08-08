@@ -3,6 +3,20 @@ import { api, money } from "./api";
 import "./customer-features.css";
 
 const ADDRESS_KEY = "panditoo-saved-addresses-v1";
+const getStoredReferral = () => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("ref") || params.get("referral") || params.get("referral_code") || params.get("code");
+    if (code) {
+      const clean = code.toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+      if (clean) {
+        localStorage.setItem("panditoo-ref", clean);
+        return clean;
+      }
+    }
+  } catch (_) {}
+  return localStorage.getItem("panditoo-ref") || "";
+};
 const REASONS = [
   ["change_of_plan", "Change in plan"],
   ["pandit_asked_to_cancel", "Pandit asked me to cancel"],
@@ -19,7 +33,32 @@ const addDays = (value, days) => {
   date.setDate(date.getDate() + Number(days || 30));
   return isoDate(date);
 };
-const niceDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+const niceDate = (value) => {
+  if (!value) return "—";
+  try {
+    if (value instanceof Date) {
+      if (isNaN(value.getTime())) return "—";
+      return value.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+    let str = String(value).trim();
+    if (str.includes("T")) str = str.split("T")[0];
+    else if (str.includes(" ")) str = str.split(" ")[0];
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const d = new Date(`${str}T00:00:00`);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      }
+    }
+    const parsed = new Date(value);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+    return "—";
+  } catch (_) {
+    return "—";
+  }
+};
 const readSaved = () => { try { return JSON.parse(localStorage.getItem(ADDRESS_KEY) || "[]"); } catch { return []; } };
 const slotAvailable = (date, time) => {
   if (date !== isoDate()) return true;
@@ -57,7 +96,22 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
   const [panditSort, setPanditSort] = useState("recommended");
   const [selected, setSelected] = useState([]);
   const [savedAddresses, setSavedAddresses] = useState(readSaved);
-  const [form, setForm] = useState({ date: today, time: "", address: profile?.address || "", lat: null, lng: null, coupon: "", referral: profile?.referral_eligible ? profile.referral_code || "" : "" });
+  const [form, setForm] = useState(() => {
+    const storedRef = getStoredReferral();
+    const autoRef = (profile?.referral_eligible && profile?.referral_code)
+      ? profile.referral_code
+      : (profile?.referral_code || storedRef);
+    return {
+      date: today,
+      time: "",
+      address: profile?.address || "",
+      lat: null,
+      lng: null,
+      coupon: "",
+      referral: autoRef || "",
+    };
+  });
+  const [showReferralInput, setShowReferralInput] = useState(false);
   const [quote, setQuote] = useState(null);
   const [draftBooking, setDraftBooking] = useState(null);
   const [completedBooking, setCompletedBooking] = useState(null);
@@ -65,6 +119,7 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
   const [locating, setLocating] = useState(false);
   const [panditsLoading, setPanditsLoading] = useState(false);
   const [error, setError] = useState("");
+  const hasActiveReferral = Boolean(form.referral || quote?.referral || showReferralInput);
 
   const availableSlots = useMemo(() => (config?.slots || []).filter((slot) => slotAvailable(form.date, slot.time_value)), [config, form.date]);
   const sortedPandits = useMemo(() => [...pandits].sort((a, b) => panditSort === "nearest" ? Number(a.distance_km || 999) - Number(b.distance_km || 999) : panditSort === "experience" ? Number(b.experience_years || 0) - Number(a.experience_years || 0) : Number(b.ranking_score || 0) - Number(a.ranking_score || 0)), [pandits, panditSort]);
@@ -73,10 +128,14 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
     api("/booking-config").then((result) => setConfig(result.data)).catch((e) => setError(e.message));
   }, []);
   useEffect(() => {
+    const storedRef = getStoredReferral();
+    const autoRef = (profile?.referral_eligible && profile?.referral_code)
+      ? profile.referral_code
+      : (profile?.referral_code || storedRef);
     setForm((current) => ({
       ...current,
       address: current.address || profile?.address || "",
-      referral: current.referral || (profile?.referral_eligible ? profile.referral_code || "" : ""),
+      referral: current.referral || autoRef || "",
     }));
   }, [profile]);
   useEffect(() => {
@@ -85,9 +144,23 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
   useEffect(() => {
     if (!form.date) return;
     let current = true;
-    quotePrice("", form.referral).then((value) => current && setQuote(value)).catch(() => current && setQuote(null));
+    const effectiveReferral = form.referral || (profile?.referral_eligible && profile?.referral_code ? profile.referral_code : getStoredReferral());
+    quotePrice(form.coupon, effectiveReferral).then((value) => current && setQuote(value)).catch(() => current && setQuote(null));
     return () => { current = false; };
-  }, [form.date]);
+  }, [form.date, form.referral, form.coupon, profile]);
+  useEffect(() => {
+    if (step === 1 && (form.lat == null || form.lng == null)) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => setForm((curr) => ({ ...curr, lat: pos.coords.latitude, lng: pos.coords.longitude })),
+          () => setForm((curr) => ({ ...curr, lat: curr.lat ?? 22.7196, lng: curr.lng ?? 75.8577 })),
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      } else {
+        setForm((curr) => ({ ...curr, lat: curr.lat ?? 22.7196, lng: curr.lng ?? 75.8577 }));
+      }
+    }
+  }, [step]);
 
   const quotePrice = async (coupon = form.coupon, referral = form.referral) => {
     const result = await api("/pricing/quote", { method: "POST", body: { pooja_type_id: pooja.id, booking_date: form.date, coupon_code: coupon.trim() || undefined, referral_code: referral.trim() || undefined } });
@@ -99,19 +172,38 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
     finally { setBusy(false); }
   };
   const useLocation = () => {
-    if (!navigator.geolocation) return setError("Location is not supported by this browser. Enter your address manually.");
     setLocating(true); setError("");
+    if (!navigator.geolocation) {
+      setForm((current) => ({ ...current, lat: current.lat ?? 22.7196, lng: current.lng ?? 75.8577 }));
+      setLocating(false);
+      return setError("Geolocation is not supported by your browser. Default GPS coordinates (22.7196, 75.8577) set.");
+    }
     navigator.geolocation.getCurrentPosition(
-      (position) => { setForm((current) => ({ ...current, lat: position.coords.latitude, lng: position.coords.longitude })); setLocating(false); },
-      () => { setError("Location permission was denied. You can still use a saved or manually entered address."); setLocating(false); },
+      (position) => {
+        setForm((current) => ({ ...current, lat: position.coords.latitude, lng: position.coords.longitude }));
+        setLocating(false);
+      },
+      (err) => {
+        setForm((current) => ({ ...current, lat: current.lat ?? 22.7196, lng: current.lng ?? 75.8577 }));
+        setError("GPS location permission was denied. Default GPS coordinates (22.7196, 75.8577) captured.");
+        setLocating(false);
+      },
       { enableHighAccuracy: true, timeout: 12000 },
     );
+  };
+  const selectSavedAddress = (item) => {
+    setForm((current) => ({
+      ...current,
+      address: item.address,
+      lat: item.lat ?? current.lat ?? 22.7196,
+      lng: item.lng ?? current.lng ?? 75.8577,
+    }));
   };
   const saveAddress = () => {
     const address = form.address.trim();
     if (!address) return;
     const existing = savedAddresses.find((item) => item.address.toLowerCase() === address.toLowerCase());
-    const next = existing ? savedAddresses.map((item) => item.id === existing.id ? { ...item, lat: form.lat, lng: form.lng } : item) : [{ id: String(Date.now()), label: savedAddresses.length ? `Saved place ${savedAddresses.length + 1}` : "Home", address, lat: form.lat, lng: form.lng }, ...savedAddresses].slice(0, 8);
+    const next = existing ? savedAddresses.map((item) => item.id === existing.id ? { ...item, lat: form.lat ?? 22.7196, lng: form.lng ?? 75.8577 } : item) : [{ id: String(Date.now()), label: savedAddresses.length ? `Saved place ${savedAddresses.length + 1}` : "Home", address, lat: form.lat ?? 22.7196, lng: form.lng ?? 75.8577 }, ...savedAddresses].slice(0, 8);
     setSavedAddresses(next); localStorage.setItem(ADDRESS_KEY, JSON.stringify(next));
   };
   const loadPandits = async () => {
@@ -131,6 +223,9 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
     }
     if (step === 1) {
       if (form.address.trim().length < 5) return setError("Please enter the complete ceremony address.");
+      const lat = form.lat ?? 22.7196;
+      const lng = form.lng ?? 75.8577;
+      setForm((current) => ({ ...current, lat, lng }));
       saveAddress(); await loadPandits(); setStep(2); return;
     }
     if (step === 2) {
@@ -174,10 +269,14 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
         </>}
       </>}
       {step === 1 && <><p className="eyebrow">CEREMONY LOCATION</p><h2>Choose the exact <em>location.</em></h2>
-        {!!savedAddresses.length && <div className="saved-addresses">{savedAddresses.map((item) => <button key={item.id} className={form.address === item.address ? "active" : ""} onClick={() => setForm({ ...form, address: item.address, lat: item.lat, lng: item.lng })}><b>{item.label}</b><span>{item.address}</span></button>)}</div>}
+        {!!savedAddresses.length && <div className="saved-addresses">{savedAddresses.map((item) => <button key={item.id} className={form.address === item.address ? "active" : ""} onClick={() => selectSavedAddress(item)}><b>{item.label}</b><span>{item.address}</span></button>)}</div>}
         <label>Complete address<textarea className="field" rows="5" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="House, street, area, city and pincode" /></label>
         <button className="location-button" disabled={locating} onClick={useLocation}>⌖ {locating ? "Detecting location…" : "Use current GPS location"}</button>
-        {form.lat != null && <small className="coordinates">✓ Precise coordinates captured: {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)}</small>}
+        {form.lat != null && form.lng != null ? (
+          <small className="coordinates success-coords">✓ Precise GPS coordinates captured: {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)}</small>
+        ) : (
+          <small className="coordinates required-coords">⚠️ GPS coordinates are compulsory. Click "Use current GPS location" above.</small>
+        )}
       </>}
       {step === 2 && <><p className="eyebrow">YOUR PANDIT</p><h2>Choose trusted <em>guidance.</em></h2><p className="muted">Select up to 10 preferred pandits, or leave empty for the best available match.</p>
         <div className="pandit-tools"><div>{["recommended", "nearest", "experience"].map((value) => <button className={panditSort === value ? "active" : ""} onClick={() => setPanditSort(value)} key={value}>{value}</button>)}</div><button onClick={selectRecommended}>Select top 3</button></div>
@@ -186,7 +285,16 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
       </>}
       {step === 3 && <><p className="eyebrow">FINAL REVIEW</p><h2>Your sacred <em>arrangement.</em></h2>
         <div className="booking-summary"><div><span>ॐ</span><div><b>{pooja.name || pooja.name_en}</b><small>{niceDate(form.date)} · {form.time}</small></div></div><p>{form.address}</p><small>{selected.length ? `${selected.length} preferred pandit${selected.length > 1 ? "s" : ""}` : "Any available verified pandit"}</small></div>
-        <div className="discount-grid"><label>Coupon code<input className="field" value={form.coupon} onChange={(e) => setForm({ ...form, coupon: e.target.value.toUpperCase() })} placeholder="ENTER COUPON" /></label><label>Referral code<input className="field" value={form.referral} onChange={(e) => setForm({ ...form, referral: e.target.value.toUpperCase() })} placeholder="REFERRAL CODE" /></label><button disabled={busy || (!form.coupon.trim() && !form.referral.trim())} onClick={applyDiscounts}>{busy ? "Checking…" : "Apply codes"}</button></div>
+        <div className={`discount-grid ${hasActiveReferral ? "has-referral" : "single-code"}`}>
+          <label>Coupon code<input className="field" value={form.coupon} onChange={(e) => setForm({ ...form, coupon: e.target.value.toUpperCase() })} placeholder="ENTER COUPON" /></label>
+          {hasActiveReferral && (
+            <label>Referral code<input className="field" value={form.referral} onChange={(e) => setForm({ ...form, referral: e.target.value.toUpperCase() })} placeholder="REFERRAL CODE" /></label>
+          )}
+          <button disabled={busy || (!form.coupon.trim() && !form.referral.trim())} onClick={applyDiscounts}>{busy ? "Checking…" : "Apply codes"}</button>
+        </div>
+        {!hasActiveReferral && (
+          <button type="button" className="toggle-referral-btn" onClick={() => setShowReferralInput(true)}>+ Have a referral code?</button>
+        )}
         <PriceDetails quote={quote} />
         {draftBooking && <InlineNotice good>Your booking draft is saved. Retrying will only reopen payment and will not create a duplicate.</InlineNotice>}
         <p className="booking-terms">By paying, you agree to the displayed booking, payment and cancellation terms.</p>
@@ -224,11 +332,122 @@ export function CustomerBookings({ rows, reload }) {
 }
 
 export function CustomerProfile({ profile, bookings, reload, logout, openLegal }) {
-  const [editing, setEditing] = useState(false); const [form, setForm] = useState(profile || {}); const [payments, setPayments] = useState(null); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(profile || {});
+  const [payments, setPayments] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [showDelete, setShowDelete] = useState(false);
+
   useEffect(() => setForm(profile || {}), [profile]);
-  const save = async () => { setBusy(true); setError(""); try { await api("/auth/me", { method: "PATCH", auth: true, body: { name: form.name, email: form.email, address: form.address } }); setEditing(false); await reload(); } catch (e) { setError(e.message); } finally { setBusy(false); } };
-  const loadPayments = async () => { setBusy(true); setError(""); try { const result = await api("/payments/history", { auth: true }); setPayments(result.data || []); } catch (e) { setError(e.message); } finally { setBusy(false); } };
-  const deleteAccount = async () => { if (!confirm("Permanently delete your Panditoo account? This cannot be undone.")) return; setBusy(true); try { await api("/auth/me", { method: "DELETE", auth: true }); logout(); } catch (e) { setError(e.message); setBusy(false); } };
+
+  const save = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/auth/me", { method: "PATCH", auth: true, body: { name: form.name, email: form.email, address: form.address } });
+      setEditing(false);
+      await reload();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadPayments = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api("/payments/history", { auth: true });
+      setPayments(result.data || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!confirm("Permanently delete your Panditoo account? This cannot be undone.")) return;
+    setBusy(true);
+    try {
+      await api("/auth/me", { method: "DELETE", auth: true });
+      logout();
+    } catch (e) {
+      setError(e.message);
+      setBusy(false);
+    }
+  };
+
   const completed = bookings.filter((booking) => booking.status === "completed").length;
-  return <div className="dashboard-page narrow"><div className="profile-banner"><span>{profile?.name?.[0] || "U"}</span><div><p>MY PANDITOO ACCOUNT</p><h1>{profile?.name}</h1><small>+91 {profile?.phone}</small></div><button onClick={() => setEditing(!editing)}>{editing ? "Cancel" : "Edit profile"}</button></div><InlineNotice>{error}</InlineNotice><div className="account-stats"><span><b>{bookings.length}</b>Bookings</span><span><b>{completed}</b>Completed</span><span><b>{readSaved().length || (profile?.address ? 1 : 0)}</b>Addresses</span></div><section className="profile-box"><h2>Your information</h2>{editing ? <div className="form-grid"><label>Name<input className="field" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })}/></label><label>Email<input className="field" type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })}/></label><label className="wide">Primary address<input className="field" value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })}/></label><button className="button primary" disabled={busy || !form.name?.trim()} onClick={save}>{busy ? "Saving…" : "Save changes"}</button></div> : <div className="detail-rows"><span>Email <b>{profile?.email || "Not added"}</b></span><span>Primary address <b>{profile?.address || "Not added"}</b></span><span>Referral <b>{profile?.referral_eligible ? profile.referral_code || "Eligible" : "Not active"}</b></span></div>}</section><section className="profile-links"><button onClick={loadPayments}><span>₹</span><div><b>Payment History</b><small>Past online transactions</small></div>→</button><button onClick={() => openLegal("terms")}><span>§</span><div><b>Terms & Conditions</b><small>Service and cancellation rules</small></div>→</button><button onClick={() => openLegal("privacy")}><span>♢</span><div><b>Privacy Policy</b><small>Data and account controls</small></div>→</button></section>{payments && <section className="payment-history"><div><h2>Payment history</h2><button onClick={() => setPayments(null)}>Close</button></div>{payments.length ? payments.map((payment) => <article key={payment.id}><div><b>{payment.name_en}</b><small>{new Date(payment.created_at).toLocaleDateString("en-IN")} · {payment.status}</small></div><strong>{money(payment.amount)}</strong>{payment.razorpay_payment_id && <code>{payment.razorpay_payment_id}</code>}</article>) : <p>No payment transactions found.</p>}</section>}<button className="signout" onClick={logout}>Sign out of Panditoo</button><button className="delete-account" disabled={busy} onClick={deleteAccount}>Delete my account</button></div>;
+
+  return (
+    <div className="dashboard-page narrow">
+      <div className="profile-banner">
+        <span>{profile?.name?.[0] || "U"}</span>
+        <div>
+          <p>MY PANDITOO ACCOUNT</p>
+          <h1>{profile?.name}</h1>
+          <small>+91 {profile?.phone}</small>
+        </div>
+        <button onClick={() => setEditing(!editing)}>{editing ? "Cancel" : "Edit profile"}</button>
+      </div>
+      <InlineNotice>{error}</InlineNotice>
+      <div className="account-stats">
+        <span><b>{bookings.length}</b>Bookings</span>
+        <span><b>{completed}</b>Completed</span>
+        <span><b>{readSaved().length || (profile?.address ? 1 : 0)}</b>Addresses</span>
+      </div>
+      <section className="profile-box">
+        <h2>Your information</h2>
+        {editing ? (
+          <div className="form-grid">
+            <label>Name<input className="field" value={form.name || ""} onChange={(e) => setForm({ ...form, name: e.target.value })}/></label>
+            <label>Email<input className="field" type="email" value={form.email || ""} onChange={(e) => setForm({ ...form, email: e.target.value })}/></label>
+            <label className="wide">Primary address<input className="field" value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })}/></label>
+            <div style={{ gridColumn: "1/-1", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", paddingTop: "12px", borderTop: "1px dashed var(--line)" }}>
+              <button className="button primary" disabled={busy || !form.name?.trim()} onClick={save}>{busy ? "Saving…" : "Save changes"}</button>
+              <button disabled={busy} onClick={deleteAccount} style={{ border: 0, background: "none", color: "#a33a31", fontSize: "12px", textDecoration: "underline", cursor: "pointer" }}>Delete account</button>
+            </div>
+          </div>
+        ) : (
+          <div className="detail-rows">
+            <span>Email <b>{profile?.email || "Not added"}</b></span>
+            <span>Primary address <b>{profile?.address || "Not added"}</b></span>
+            <span>Referral <b>{profile?.referral_eligible ? profile.referral_code || "Eligible" : "Not active"}</b></span>
+          </div>
+        )}
+      </section>
+      <section className="profile-links">
+        <button onClick={loadPayments}><span>₹</span><div><b>Payment History</b><small>Past online transactions</small></div>→</button>
+        <button onClick={() => openLegal("terms")}><span>§</span><div><b>Terms & Conditions</b><small>Service and cancellation rules</small></div>→</button>
+        <button onClick={() => openLegal("privacy")}><span>♢</span><div><b>Privacy Policy</b><small>Data and account controls</small></div>→</button>
+      </section>
+      {payments && (
+        <section className="payment-history">
+          <div>
+            <h2>Payment history</h2>
+            <button onClick={() => setPayments(null)}>Close</button>
+          </div>
+          {payments.length ? payments.map((payment) => (
+            <article key={payment.id}>
+              <div>
+                <b>{payment.name_en}</b>
+                <small>{new Date(payment.created_at).toLocaleDateString("en-IN")} · {payment.status}</small>
+              </div>
+              <strong>{money(payment.amount)}</strong>
+              {payment.razorpay_payment_id && <code>{payment.razorpay_payment_id}</code>}
+            </article>
+          )) : <p>No payment transactions found.</p>}
+        </section>
+      )}
+      <div className="profile-actions">
+        <button className="signout-btn" onClick={logout}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign out of Panditoo
+        </button>
+      </div>
+    </div>
+  );
 }

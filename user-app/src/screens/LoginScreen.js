@@ -15,7 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import { POLICY_VERSION } from "../legal/policies";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 const fetchWithTimeout = async (url, options, timeout = 10000) => {
   const controller = new AbortController();
@@ -74,12 +74,19 @@ export default function LoginScreen({ navigation }) {
       const data = await res.json();
       if (res.ok && data.success) {
         setOtpSent(true);
+        const currentOtp = data.otp || data.debugOtp;
+        if (currentOtp) {
+          console.log(`\n========================================`);
+          console.log(`📲 RECEIVED OTP FROM SERVER: ${currentOtp}`);
+          console.log(`========================================\n`);
+          setError(`✓ OTP Sent! Debug OTP is: ${currentOtp}`);
+        }
       } else {
         setError(data.message || "Failed to send OTP. Please try again.");
       }
     } catch (err) {
       console.warn("Auth send-otp failed:", err.message);
-      setError("Server connection failed. Please try again.");
+      setError("Server connection failed. Ensure backend server is running & check network.");
     } finally {
       setLoading(false);
     }

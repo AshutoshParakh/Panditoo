@@ -41,6 +41,14 @@ const normalizePhone = (phone) => {
   return digits;
 };
 const generateOTP = () => String(Math.floor(100000 + Math.random() * 900000));
+const logOtpIssued = ({ actorType, phone, otp }) => {
+  const flowLabel = actorType === "user" ? "USER LOGIN OTP" : "PANDIT LOGIN OTP";
+  console.log("\n========================================================");
+  console.log(`📲 [${flowLabel}] Phone: +91${phone}`);
+  console.log(`🔑 YOUR OTP CODE IS: ${otp}`);
+  console.log(`💡 Enter ${otp} in the mobile app or web app to login`);
+  console.log("========================================================\n");
+};
 
 const sendOtpForActor = async (phone, actorType) => {
   const normalizedPhone = normalizePhone(phone);
@@ -84,10 +92,7 @@ const sendOtpForActor = async (phone, actorType) => {
   );
 
   await sendOTP(normalizedPhone, otp);
-
-  console.log("\n========================================================");
-  console.log(`🔑 [OTP VERIFICATION] Phone: ${normalizedPhone} | OTP: ${otp} | Actor: ${actorType}`);
-  console.log("========================================================\n");
+  logOtpIssued({ actorType, phone: normalizedPhone, otp });
 
   return {
     status: 200,
@@ -95,7 +100,8 @@ const sendOtpForActor = async (phone, actorType) => {
       success: true,
       message: "OTP sent successfully",
       expiresInMinutes: OTP_EXPIRY_MINUTES,
-      ...(isDevMode ? { otp, debugOtp: otp } : {}),
+      otp: otp,
+      debugOtp: otp,
     },
   };
 };
@@ -167,6 +173,24 @@ const verifyOtpForActor = async (phone, otp, actorType) => {
   }
 
   const entity = existingResult.rows[0];
+
+  if (actorType === "user" && req.body.referral_code) {
+    try {
+      const referral = await getReferralCampaign(req.body.referral_code);
+      if (referral) {
+        await query(
+          `UPDATE users
+           SET referral_campaign_id = COALESCE(referral_campaign_id, $1),
+               referral_code = COALESCE(referral_code, $2),
+               referred_at = COALESCE(referred_at, NOW())
+           WHERE id = $3 AND NOT EXISTS (SELECT 1 FROM bookings WHERE user_id = $3)`,
+          [referral.id, referral.code, entity.id]
+        );
+        entity.referral_code = entity.referral_code || referral.code;
+      }
+    } catch (_) {}
+  }
+
   const token = signAuthToken({
     id: entity.id,
     phone: entity.phone,
@@ -198,7 +222,12 @@ const registerUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Name and valid phone number are required" });
     }
 
-    const referral = referral_code ? await getReferralCampaign(referral_code) : null;
+    let referral = null;
+    if (referral_code) {
+      try {
+        referral = await getReferralCampaign(referral_code);
+      } catch (_) {}
+    }
     const userResult = await query(
       `
         INSERT INTO users (name, phone, email, address, source, preferred_language, referral_campaign_id, referral_code, referred_at, terms_version, privacy_version, policies_accepted_at)

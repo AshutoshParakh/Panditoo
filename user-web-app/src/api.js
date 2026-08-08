@@ -1,4 +1,4 @@
-export const API_URL = (import.meta.env.VITE_API_BASE_URL || "https://13.206.175.173/api").replace(/\/$/, "");
+export const API_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 export const token = () => localStorage.getItem("panditoo-token");
 
 export async function api(path, { method = "GET", body, auth = false } = {}) {

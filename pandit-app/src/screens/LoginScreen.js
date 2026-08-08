@@ -13,8 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 const fetchWithTimeout = async (url, options, timeout = 10000) => {
   const controller = new AbortController();
@@ -49,6 +48,7 @@ export default function LoginScreen({ navigation }) {
     }
     setLoading(true);
     try {
+      console.log(`[PanditApp] Sending OTP request to: ${API_URL}/auth/pandit/send-otp`);
       const res = await fetchWithTimeout(`${API_URL}/auth/pandit/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,11 +57,19 @@ export default function LoginScreen({ navigation }) {
       const data = await res.json();
       if (res.ok && data.success) {
         setOtpSent(true);
+        const currentOtp = data.otp || data.debugOtp;
+        if (currentOtp) {
+          console.log(`\n========================================`);
+          console.log(`📲 RECEIVED OTP FROM SERVER: ${currentOtp}`);
+          console.log(`========================================\n`);
+          setError(`✓ OTP Sent! Debug OTP is: ${currentOtp}`);
+        }
       } else {
         setError(data.message || "Failed to send OTP. Please try again.");
       }
     } catch (err) {
-      setError(err.name === "AbortError" ? "Request timed out. Check your connection and try again." : "Unable to connect to the server. Please try again.");
+      console.warn("[PanditApp] send-otp failed:", err.message);
+      setError(`Connection failed (${API_URL}). Ensure device & computer are on same Wi-Fi.`);
     } finally {
       setLoading(false);
     }
