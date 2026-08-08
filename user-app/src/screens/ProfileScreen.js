@@ -32,7 +32,7 @@ export default function ProfileScreen({ navigation }) {
   useLiveRefresh(load);
 
   const toggleNotifications = async (value) => { setNotifications(value); await AsyncStorage.setItem("user-notifications-enabled", String(value)); };
-  const open = (type, title) => navigation.navigate("AccountDetail", { type, title, user });
+  const open = (type, title) => ["terms", "privacy"].includes(type) ? navigation.navigate("LegalDocument", { type, title }) : navigation.navigate("AccountDetail", { type, title, user });
   const logout = async () => { await AsyncStorage.multiRemove(["user-app-token", "user-id"]); navigation.reset({ index: 0, routes: [{ name: "Onboarding" }] }); };
   const deleteAccount = null;
 

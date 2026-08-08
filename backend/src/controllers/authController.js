@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const net = require("net");
 
 const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
@@ -8,6 +9,26 @@ const { getReferralCampaign } = require("../services/referralService");
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const OTP_RATE_LIMIT_MAX = Number(process.env.OTP_RATE_LIMIT_MAX || 3);
 const OTP_RATE_LIMIT_WINDOW_MINUTES = Number(process.env.OTP_RATE_LIMIT_WINDOW_MINUTES || 10);
+const CURRENT_POLICY_VERSION = "2026-08-07";
+
+const validatePolicyAcceptance = (body) => (
+  body.terms_accepted === true &&
+  body.privacy_accepted === true &&
+  body.terms_version === CURRENT_POLICY_VERSION &&
+  body.privacy_version === CURRENT_POLICY_VERSION
+);
+
+const recordPolicyAcceptance = async (req, actorType, actorId) => {
+  const forwardedIp = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  const candidateIp = (forwardedIp || req.ip || "").replace(/^::ffff:/, "");
+  const ipAddress = net.isIP(candidateIp) ? candidateIp : null;
+  await query(
+    `INSERT INTO policy_acceptances (actor_type, actor_id, terms_version, privacy_version, ip_address, user_agent)
+     VALUES ($1, $2, $3, $3, $4, $5)
+     ON CONFLICT (actor_type, actor_id, terms_version, privacy_version) DO NOTHING`,
+    [actorType, actorId, CURRENT_POLICY_VERSION, ipAddress, String(req.headers["user-agent"] || "").slice(0, 1000) || null]
+  );
+};
 
 const normalizePhone = (phone) => {
   const digits = String(phone || "").replace(/\D/g, "");
@@ -169,6 +190,10 @@ const registerUser = async (req, res, next) => {
     const { name, phone, email, address, source, preferred_language, referral_code } = req.body;
     const normalizedPhone = normalizePhone(phone);
 
+    if (!validatePolicyAcceptance(req.body)) {
+      return res.status(400).json({ success: false, message: "You must accept the current Terms & Conditions and Privacy Policy to register" });
+    }
+
     if (!name || !normalizedPhone || normalizedPhone.length < 10) {
       return res.status(400).json({ success: false, message: "Name and valid phone number are required" });
     }
@@ -176,8 +201,8 @@ const registerUser = async (req, res, next) => {
     const referral = referral_code ? await getReferralCampaign(referral_code) : null;
     const userResult = await query(
       `
-        INSERT INTO users (name, phone, email, address, source, preferred_language, referral_campaign_id, referral_code, referred_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $7::uuid IS NOT NULL THEN NOW() ELSE NULL END)
+        INSERT INTO users (name, phone, email, address, source, preferred_language, referral_campaign_id, referral_code, referred_at, terms_version, privacy_version, policies_accepted_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $7::uuid IS NOT NULL THEN NOW() ELSE NULL END, $9, $9, NOW())
         ON CONFLICT (phone)
         DO UPDATE SET 
           name = EXCLUDED.name, 
@@ -187,13 +212,17 @@ const registerUser = async (req, res, next) => {
           referral_campaign_id = COALESCE(users.referral_campaign_id, EXCLUDED.referral_campaign_id),
           referral_code = COALESCE(users.referral_code, EXCLUDED.referral_code),
           referred_at = COALESCE(users.referred_at, EXCLUDED.referred_at),
+          terms_version = EXCLUDED.terms_version,
+          privacy_version = EXCLUDED.privacy_version,
+          policies_accepted_at = EXCLUDED.policies_accepted_at,
           updated_at = NOW()
         RETURNING id, name, phone, email, address, source, referral_code
       `,
-      [name, normalizedPhone, email || null, address || null, source || null, preferred_language || "en", referral?.id || null, referral?.code || null]
+      [name, normalizedPhone, email || null, address || null, source || null, preferred_language || "en", referral?.id || null, referral?.code || null, CURRENT_POLICY_VERSION]
     );
 
     const user = userResult.rows[0];
+    await recordPolicyAcceptance(req, "user", user.id);
     const token = signAuthToken({
       id: user.id,
       phone: user.phone,
@@ -229,6 +258,10 @@ const registerPandit = async (req, res, next) => {
     } = req.body;
     const normalizedPhone = normalizePhone(phone);
 
+    if (!validatePolicyAcceptance(req.body)) {
+      return res.status(400).json({ success: false, message: "You must accept the current Terms & Conditions and Privacy Policy to register" });
+    }
+
     if (!name || !normalizedPhone || normalizedPhone.length < 10) {
       return res.status(400).json({ success: false, message: "Name and valid phone number are required" });
     }
@@ -238,9 +271,9 @@ const registerPandit = async (req, res, next) => {
         INSERT INTO pandits (
           name, phone, email, address, source, specializations,
           experience_years, service_radius_km, latitude, longitude,
-          bank_account_details, id_proof_url
+          bank_account_details, id_proof_url, terms_version, privacy_version, policies_accepted_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13, NOW())
         ON CONFLICT (phone)
         DO UPDATE SET 
           name = EXCLUDED.name, 
@@ -254,6 +287,9 @@ const registerPandit = async (req, res, next) => {
           longitude = EXCLUDED.longitude,
           bank_account_details = EXCLUDED.bank_account_details,
           id_proof_url = EXCLUDED.id_proof_url,
+          terms_version = EXCLUDED.terms_version,
+          privacy_version = EXCLUDED.privacy_version,
+          policies_accepted_at = EXCLUDED.policies_accepted_at,
           updated_at = NOW()
         RETURNING id, name, phone, email, address, source, specializations, experience_years, service_radius_km, latitude, longitude, bank_account_details, id_proof_url, is_verified, is_active
       `,
@@ -270,10 +306,12 @@ const registerPandit = async (req, res, next) => {
         longitude ? parseFloat(longitude) : null,
         bank_account_details ? (typeof bank_account_details === "object" ? JSON.stringify(bank_account_details) : bank_account_details) : "{}",
         id_proof_url || null,
+        CURRENT_POLICY_VERSION,
       ]
     );
 
     const pandit = panditResult.rows[0];
+    await recordPolicyAcceptance(req, "pandit", pandit.id);
     const token = signAuthToken({
       id: pandit.id,
       phone: pandit.phone,

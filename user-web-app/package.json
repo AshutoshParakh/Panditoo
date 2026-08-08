@@ -1,0 +1,22 @@
+{
+  "name": "panditoo-user-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:e2e": "node scripts/e2e-smoke.mjs",
+    "test:live-api": "node scripts/live-api-smoke.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.0.5",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "vite": "^8.2.1"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.54.2"
+  }
+}

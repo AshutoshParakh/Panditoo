@@ -23,6 +23,7 @@ import BookingDetailScreen from "./src/screens/BookingDetailScreen";
 import RequestDetailScreen from "./src/screens/RequestDetailScreen";
 import CreditWalletScreen from "./src/screens/CreditWalletScreen";
 import AvailabilityScreen from "./src/screens/AvailabilityScreen";
+import LegalDocumentScreen from "./src/screens/LegalDocumentScreen";
 
 
 const Stack = createNativeStackNavigator();
@@ -171,13 +172,13 @@ function AppNavigator() {
               component={ProfileSetupScreen}
               options={{ headerShown: false }}
             />
+            <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} options={({ route }) => ({ title: route.params?.title || "Legal" })} />
           </>
         ) : !isProfileComplete ? (
-          <Stack.Screen
-            name="ProfileSetup"
-            component={ProfileSetupScreen}
-            options={{ headerShown: false }}
-          />
+          <>
+            <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} options={({ route }) => ({ title: route.params?.title || "Legal" })} />
+          </>
         ) : (
           <>
             <Stack.Screen
@@ -196,6 +197,7 @@ function AppNavigator() {
               options={{ title: "Pooja Request", headerBackTitleVisible: false }}
             />
             <Stack.Screen name="Availability" component={AvailabilityScreen} options={{ title: "Availability", headerBackTitleVisible: false }} />
+            <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} options={({ route }) => ({ title: route.params?.title || "Legal" })} />
             <Stack.Screen
               name="CreditWallet"
               component={CreditWalletScreen}

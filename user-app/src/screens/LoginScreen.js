@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
+import { POLICY_VERSION } from "../legal/policies";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
 
@@ -45,6 +46,7 @@ export default function LoginScreen({ navigation }) {
   const [referralCode, setReferralCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [policiesAccepted, setPoliciesAccepted] = useState(false);
 
   useEffect(() => {
     const applyLink = (url) => {
@@ -128,12 +130,16 @@ export default function LoginScreen({ navigation }) {
       setError("Name is required");
       return;
     }
+    if (!policiesAccepted) {
+      setError("Please accept the Terms & Conditions and Privacy Policy to create an account.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetchWithTimeout(`${API_URL}/auth/user/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone, email, address, source, referral_code: referralCode.trim() || undefined }),
+        body: JSON.stringify({ name, phone, email, address, source, referral_code: referralCode.trim() || undefined, terms_accepted: true, privacy_accepted: true, terms_version: POLICY_VERSION, privacy_version: POLICY_VERSION }),
       });
       const data = await res.json();
       if (res.ok && data.success && data.token) {
@@ -301,6 +307,11 @@ export default function LoginScreen({ navigation }) {
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+                <TouchableOpacity style={styles.consentRow} onPress={() => setPoliciesAccepted((value) => !value)} disabled={loading} accessibilityRole="checkbox" accessibilityState={{ checked: policiesAccepted }}>
+                  <View style={[styles.checkbox, policiesAccepted && styles.checkboxChecked]}><Text style={styles.checkmark}>{policiesAccepted ? "✓" : ""}</Text></View>
+                  <Text style={styles.consentText}>I am at least 18, agree to the <Text style={styles.link} onPress={() => navigation.navigate("LegalDocument", { type: "terms", title: "Terms & Conditions" })}>Terms & Conditions</Text>, and consent to the processing described in the <Text style={styles.link} onPress={() => navigation.navigate("LegalDocument", { type: "privacy", title: "Privacy Policy" })}>Privacy Policy</Text>.</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                   style={[styles.button, styles.verifyBtn]}
                   onPress={handleRegister}
@@ -323,6 +334,7 @@ export default function LoginScreen({ navigation }) {
                     setAddress("");
                     setSource("");
                     setReferralCode("");
+                    setPoliciesAccepted(false);
                     setError("");
                   }}
                   disabled={loading}
@@ -461,4 +473,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textDecorationLine: "underline",
   },
+  consentRow: { flexDirection: "row", alignItems: "flex-start", marginTop: 8, marginBottom: 8 },
+  checkbox: { width: 23, height: 23, borderRadius: 5, borderWidth: 1.5, borderColor: "#9E8174", alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 1 },
+  checkboxChecked: { backgroundColor: "#6A1B1A", borderColor: "#6A1B1A" }, checkmark: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  consentText: { flex: 1, color: "#5F4B3A", fontSize: 12, lineHeight: 18 }, link: { color: "#6A1B1A", fontWeight: "800", textDecorationLine: "underline" },
 });

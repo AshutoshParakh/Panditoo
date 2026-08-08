@@ -1,0 +1,31 @@
+.ceremony-card[role="link"] {
+  cursor: pointer;
+  outline: none;
+}
+
+.ceremony-card[role="link"]:focus-visible {
+  border-color: var(--wine);
+  box-shadow: 0 0 0 3px rgb(114 31 27 / 18%), 0 22px 60px #3d1f1220;
+  transform: translateY(-4px);
+}
+
+.ceremony-cta {
+  width: 100%;
+  border-top: 1px solid var(--line);
+  margin-top: 15px;
+  padding-top: 15px;
+  color: var(--wine);
+  font-size: 9px;
+  font-weight: 800;
+  display: flex;
+  justify-content: space-between;
+}
+
+.ceremony-cta span {
+  transition: transform 180ms ease;
+}
+
+.ceremony-card:hover .ceremony-cta span,
+.ceremony-card:focus-visible .ceremony-cta span {
+  transform: translateX(4px);
+}

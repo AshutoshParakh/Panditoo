@@ -15,6 +15,7 @@ import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import * as ImagePicker from "expo-image-picker";
+import { POLICY_VERSION } from "../legal/policies";
 
 const POOJA_OPTIONS = [
   { id: "Satyanarayan Pooja", label: "📈 Satyanarayan", labelHi: "📈 सत्यनारायण पूजा" },
@@ -52,6 +53,7 @@ export default function ProfileSetupScreen({ route, navigation }) {
   // ID Upload State
   const [idPhoto, setIdPhoto] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [policiesAccepted, setPoliciesAccepted] = useState(false);
 
   const toggleSpecialization = (id) => {
     if (specializations.includes(id)) {
@@ -181,6 +183,10 @@ export default function ProfileSetupScreen({ route, navigation }) {
       Alert.alert(t("common.error"), "Please upload an ID proof photo for verification");
       return;
     }
+    if (!policiesAccepted) {
+      Alert.alert(t("common.error"), "Please accept the Terms & Conditions and Privacy Policy to register.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -205,6 +211,10 @@ export default function ProfileSetupScreen({ route, navigation }) {
         bank_account_details: bankDetailsObj,
         id_proof_url: idPhoto,
         source: "Self Registered",
+        terms_accepted: true,
+        privacy_accepted: true,
+        terms_version: POLICY_VERSION,
+        privacy_version: POLICY_VERSION,
       };
 
       await register(panditData);
@@ -422,8 +432,12 @@ export default function ProfileSetupScreen({ route, navigation }) {
         </View>
 
         {/* Submit */}
+        <TouchableOpacity style={styles.consentRow} onPress={() => setPoliciesAccepted((value) => !value)} disabled={loading} accessibilityRole="checkbox" accessibilityState={{ checked: policiesAccepted }}>
+          <View style={[styles.checkbox, policiesAccepted && styles.checkboxChecked]}><Text style={styles.checkmark}>{policiesAccepted ? "✓" : ""}</Text></View>
+          <Text style={styles.consentText}>I am at least 18, agree to the <Text style={styles.legalLink} onPress={() => navigation.navigate("LegalDocument", { type: "terms", title: "Terms & Conditions" })}>Terms & Conditions</Text>, and consent to the processing described in the <Text style={styles.legalLink} onPress={() => navigation.navigate("LegalDocument", { type: "privacy", title: "Privacy Policy" })}>Privacy Policy</Text>.</Text>
+        </TouchableOpacity>
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={[styles.submitBtn, !policiesAccepted && styles.submitBtnDisabled]}
           onPress={handleRegister}
           disabled={loading}
           activeOpacity={0.8}
@@ -698,4 +712,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#ffffff",
   },
+  submitBtnDisabled: { opacity: 0.55 },
+  consentRow: { flexDirection: "row", alignItems: "flex-start", marginTop: 18, marginBottom: 4 },
+  checkbox: { width: 23, height: 23, borderRadius: 5, borderWidth: 1.5, borderColor: "#B45309", alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 1 },
+  checkboxChecked: { backgroundColor: "#7C2D12", borderColor: "#7C2D12" }, checkmark: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  consentText: { flex: 1, color: "#78350F", fontSize: 12, lineHeight: 18 }, legalLink: { color: "#9A3412", fontWeight: "800", textDecorationLine: "underline" },
 });
