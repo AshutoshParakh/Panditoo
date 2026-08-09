@@ -5,8 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { colors, money, shadow } from "../theme";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 export default function BookingDetailScreen({ route, navigation }) {
   const { bookingId } = route.params;

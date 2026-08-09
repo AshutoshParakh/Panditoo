@@ -15,8 +15,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import RazorpayCheckout from "react-native-razorpay";
 import { useAuth } from "../context/AuthContext";
 import { colors, shadow } from "../theme";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://api.panditoo.in/api";
+import { API_URL } from "../config/api";
 
 export default function CreditWalletScreen() {
   const { token, pandit } = useAuth();

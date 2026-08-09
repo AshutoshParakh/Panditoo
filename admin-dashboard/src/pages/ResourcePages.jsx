@@ -23,6 +23,14 @@ import { adminApiRequest, ApiError } from "../lib/api";
 
 const { Paragraph, Text, Title } = Typography;
 
+function formatCurrency(value) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
 function useAdminGuard() {
   const navigate = useNavigate();
   const { token, logout } = useAuth();
@@ -279,8 +287,8 @@ export function PaymentsPage() {
       const response = await adminApiRequest(`/admin/payments?${params.toString()}`, { token });
       const dataset = response.data || [];
       downloadCsv("payments-export.csv", [
-        ["Payment ID", "Booking ID", "Type", "Status", "Amount", "Razorpay Payment ID", "Razorpay Order ID", "Booking Status", "User", "Pandit", "Pooja Type", "Created At"],
-        ...dataset.map((row) => [row.id, row.booking_id, row.type, row.status, row.amount, row.razorpay_payment_id || "", row.razorpay_order_id || "", row.booking_status || "", row.user_name || "", row.pandit_name || "", row.pooja_type_name || "", row.created_at || ""]),
+        ["Payment ID", "Booking ID", "Type", "Status", "Amount", "Razorpay Payment ID", "Razorpay Order ID", "Booking Status", "User", "Pandit", "Pooja Type / Description", "Created At"],
+        ...dataset.map((row) => [row.id, row.booking_id || "", row.type, row.status, row.amount, row.razorpay_payment_id || "", row.razorpay_order_id || "", row.booking_status || "", row.user_name || "", row.pandit_name || "", row.pooja_type_name || "", row.created_at || ""]),
       ]);
       message.success("Payments CSV exported");
     } catch (error) {
@@ -290,21 +298,23 @@ export function PaymentsPage() {
   };
 
   const columns = [
-    { title: "Payment", dataIndex: "id", key: "id", render: (value) => <span className="mono-cell">{value}</span> },
-    { title: "Booking", dataIndex: "booking_id", key: "booking_id", render: (value) => <span className="mono-cell">{value}</span> },
-    { title: "Type", dataIndex: "type", key: "type", render: (value) => <Tag color={value === "prepayment" ? "gold" : "blue"}>{value}</Tag> },
+    { title: "Payment ID", dataIndex: "id", key: "id", render: (value) => <span className="mono-cell">{value}</span> },
+    { title: "Booking ID", dataIndex: "booking_id", key: "booking_id", render: (value) => <span className="mono-cell">{value || "-"}</span> },
+    { title: "Type", dataIndex: "type", key: "type", render: (value) => <Tag color={value === "prepayment" ? "gold" : value === "credit_purchase" ? "purple" : "blue"}>{value}</Tag> },
     { title: "Status", dataIndex: "status", key: "status", render: (value) => <Tag color={value === "paid" ? "green" : value === "failed" ? "red" : "default"}>{value}</Tag> },
     { title: "Amount", dataIndex: "amount", key: "amount", render: (value) => formatCurrency(value) },
     { title: "Razorpay Payment ID", dataIndex: "razorpay_payment_id", key: "razorpay_payment_id", render: (value) => value || "-" },
     { title: "Razorpay Order ID", dataIndex: "razorpay_order_id", key: "razorpay_order_id", render: (value) => value || "-" },
-    { title: "User", dataIndex: "user_name", key: "user_name", render: (value) => value || "-" },
+    { title: "User / Payer", dataIndex: "user_name", key: "user_name", render: (value) => value || "-" },
     { title: "Pandit", dataIndex: "pandit_name", key: "pandit_name", render: (value) => value || "-" },
+    { title: "Description", dataIndex: "pooja_type_name", key: "pooja_type_name", render: (value) => value || "-" },
     { title: "Created", dataIndex: "created_at", key: "created_at", render: (value) => new Date(value).toLocaleString("en-IN") },
   ];
 
   return (
-    <Card title="Payments Ledger" extra={<Space><Input.Search placeholder="Search payment/order/booking id" allowClear onSearch={(value) => loadRows({ ...filters, page: 1, search: value })} style={{ width: 260 }} /><Select placeholder="Status" allowClear style={{ width: 140 }} options={[{ label: "created", value: "created" }, { label: "paid", value: "paid" }, { label: "failed", value: "failed" }, { label: "refunded", value: "refunded" }]} onChange={(value) => loadRows({ ...filters, page: 1, status: value || undefined })} /><Select placeholder="Type" allowClear style={{ width: 150 }} options={[{ label: "Prepayment", value: "prepayment" }, { label: "Payout", value: "pandit_payout" }]} onChange={(value) => loadRows({ ...filters, page: 1, type: value || undefined })} /><Button icon={<DownloadOutlined />} onClick={exportCsv}>Export CSV</Button><Button icon={<ReloadOutlined />} onClick={() => loadRows(filters)}>Refresh</Button></Space>}>
+    <Card title="Payments Ledger" extra={<Space><Input.Search placeholder="Search payment/order/booking id" allowClear onSearch={(value) => loadRows({ ...filters, page: 1, search: value })} style={{ width: 260 }} /><Select placeholder="Status" allowClear style={{ width: 140 }} options={[{ label: "created", value: "created" }, { label: "paid", value: "paid" }, { label: "failed", value: "failed" }, { label: "refunded", value: "refunded" }]} onChange={(value) => loadRows({ ...filters, page: 1, status: value || undefined })} /><Select placeholder="Type" allowClear style={{ width: 160 }} options={[{ label: "Prepayment", value: "prepayment" }, { label: "Payout", value: "pandit_payout" }, { label: "Credit Purchase", value: "credit_purchase" }]} onChange={(value) => loadRows({ ...filters, page: 1, type: value || undefined })} /><Button icon={<DownloadOutlined />} onClick={exportCsv}>Export CSV</Button><Button icon={<ReloadOutlined />} onClick={() => loadRows(filters)}>Refresh</Button></Space>}>
       <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ current: filters.page, pageSize: filters.limit, total: filters.total, onChange: (nextPage, nextPageSize) => loadRows({ ...filters, page: nextPage, limit: nextPageSize }) }} scroll={{ x: 1500 }} />
     </Card>
   );
 }
+

@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -6,8 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../hooks/useLanguage";
 import { colors, shadow } from "../theme";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 export default function ProfileScreen({ navigation }) {
   const { i18n } = useTranslation(); const hindi = i18n.language === "hi";

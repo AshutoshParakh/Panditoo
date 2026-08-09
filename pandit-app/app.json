@@ -3,6 +3,14 @@
     "name": "Pandit Booking Pandit",
     "slug": "pandit-booking-pandit",
     "version": "1.0.0",
-    "orientation": "portrait"
+    "orientation": "portrait",
+    "extra": {
+      "eas": {
+        "projectId": "31484c9e-02d1-4ee2-af76-e7f561828333"
+      }
+    },
+    "android": {
+      "package": "com.panditoo.panditbookingpandit"
+    }
   }
 }

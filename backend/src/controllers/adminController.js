@@ -300,21 +300,19 @@ const listAdminPayments = async (req, res, next) => {
 
     if (search) {
       values.push(`%${search}%`);
-      filters.push(`(p.razorpay_payment_id ILIKE $${values.length} OR p.razorpay_order_id ILIKE $${values.length} OR b.id::text ILIKE $${values.length})`);
+      filters.push(`(p.razorpay_payment_id ILIKE $${values.length} OR p.razorpay_order_id ILIKE $${values.length} OR p.booking_id::text ILIKE $${values.length} OR p.pandit_name ILIKE $${values.length} OR p.user_name ILIKE $${values.length})`);
     }
 
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
-    const [countResult, paymentsResult] = await Promise.all([
-      query(`SELECT COUNT(*)::int AS total FROM payments p LEFT JOIN bookings b ON b.id = p.booking_id ${whereClause}`, values),
-      query(
-        `
+    const cteQuery = `
+      WITH combined_payments AS (
         SELECT
-          p.id,
-          p.booking_id,
+          p.id::text AS id,
+          p.booking_id::text AS booking_id,
           p.amount::float AS amount,
-          p.type,
-          p.status,
+          p.type AS type,
+          p.status AS status,
           p.razorpay_payment_id,
           p.razorpay_order_id,
           p.created_at,
@@ -328,6 +326,34 @@ const listAdminPayments = async (req, res, next) => {
         LEFT JOIN pooja_types pt ON pt.id = b.pooja_type_id
         LEFT JOIN users u ON u.id = b.user_id
         LEFT JOIN pandits pd ON pd.id = b.confirmed_pandit_id
+
+        UNION ALL
+
+        SELECT
+          cpo.id::text AS id,
+          NULL AS booking_id,
+          cpo.amount::float AS amount,
+          'credit_purchase' AS type,
+          cpo.status AS status,
+          t.razorpay_payment_id AS razorpay_payment_id,
+          cpo.razorpay_order_id AS razorpay_order_id,
+          cpo.created_at AS created_at,
+          NULL AS booking_status,
+          NULL AS booking_date,
+          (cpo.credits || ' Credits Purchased') AS pooja_type_name,
+          NULL AS user_name,
+          pd.name AS pandit_name
+        FROM pandit_credit_purchase_orders cpo
+        LEFT JOIN pandits pd ON pd.id = cpo.pandit_id
+        LEFT JOIN pandit_credit_transactions t ON t.razorpay_order_id = cpo.razorpay_order_id AND t.type = 'purchase'
+      )
+    `;
+
+    const [countResult, paymentsResult] = await Promise.all([
+      query(`${cteQuery} SELECT COUNT(*)::int AS total FROM combined_payments p ${whereClause}`, values),
+      query(
+        `${cteQuery}
+        SELECT * FROM combined_payments p
         ${whereClause}
         ORDER BY p.created_at DESC
         LIMIT $${values.length + 1} OFFSET $${values.length + 2}
