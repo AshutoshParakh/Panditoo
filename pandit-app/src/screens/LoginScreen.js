@@ -62,7 +62,6 @@ export default function LoginScreen({ navigation }) {
           console.log(`\n========================================`);
           console.log(`📲 RECEIVED OTP FROM SERVER: ${currentOtp}`);
           console.log(`========================================\n`);
-          setError(`✓ OTP Sent! Debug OTP is: ${currentOtp}`);
         }
       } else {
         setError(data.message || "Failed to send OTP. Please try again.");

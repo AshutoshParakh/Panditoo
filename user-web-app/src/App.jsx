@@ -983,24 +983,15 @@ function AuthModal({ close, done, openLegal }) {
     try {
       if (step === "phone") {
         if (["9999999999", "9876543210"].includes(phone)) {
-          const res = await api("/auth/user/send-otp", { method: "POST", body: { phone } });
-          if (res && (res.debugOtp || res.otp)) {
-            setError(`✓ OTP Sent! Code: ${res.debugOtp || res.otp}`);
-          }
+          await api("/auth/user/send-otp", { method: "POST", body: { phone } });
           setStep("otp");
         } else {
           try {
             await sendFirebaseOtp(phone, "recaptcha-container");
-            setError(`✓ Firebase SMS sent to +91 ${phone}. Please check your phone.`);
             setStep("otp");
           } catch (fbErr) {
             console.warn("Firebase OTP error, fallback to backend:", fbErr.message);
-            const res = await api("/auth/user/send-otp", { method: "POST", body: { phone } });
-            if (res && (res.debugOtp || res.otp)) {
-              setError(`✓ OTP Sent! Code: ${res.debugOtp || res.otp}`);
-            } else {
-              setError(`✓ OTP Sent! (If SMS delayed, check server log).`);
-            }
+            await api("/auth/user/send-otp", { method: "POST", body: { phone } });
             setStep("otp");
           }
         }
