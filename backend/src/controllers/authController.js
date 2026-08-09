@@ -125,51 +125,57 @@ const sendOtpForActor = async (phone, actorType) => {
   };
 };
 
-const verifyOtpForActor = async (phone, otp, actorType, req = null) => {
+const verifyOtpForActor = async (phone, otp, actorType, req = null, options = {}) => {
   const normalizedPhone = normalizePhone(phone);
   const normalizedOtp = String(otp || "").trim();
 
-  if (normalizedPhone.length < 10 || normalizedOtp.length !== 6) {
-    return { status: 400, body: { success: false, message: "Phone and 6-digit OTP are required" } };
-  }
-
-  const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
-  const isMasterOtp =
-    (normalizedOtp === "123456" || normalizedOtp === "111111" || normalizedOtp === "999999" || normalizedOtp === "369850") &&
-    (isDevMode || isTestPhone(normalizedPhone));
-
-  let otpId = null;
-  if (!isMasterOtp) {
-    const otpResult = await query(
-      `
-        SELECT id
-        FROM otp_verifications
-        WHERE phone = $1
-          AND actor_type = $2
-          AND otp = $3
-          AND consumed_at IS NULL
-          AND expires_at > NOW()
-        ORDER BY created_at DESC
-        LIMIT 1
-      `,
-      [normalizedPhone, actorType, normalizedOtp]
-    );
-
-    if (otpResult.rowCount === 0) {
-      return { status: 400, body: { success: false, message: "Invalid or expired OTP" } };
+  if (!options.skipOtpVerification) {
+    if (normalizedPhone.length < 10 || normalizedOtp.length !== 6) {
+      return { status: 400, body: { success: false, message: "Phone and 6-digit OTP are required" } };
     }
-    otpId = otpResult.rows[0].id;
-  }
 
-  if (otpId) {
-    await query(
-      `
-        UPDATE otp_verifications
-        SET consumed_at = NOW()
-        WHERE id = $1
-      `,
-      [otpId]
-    );
+    const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
+    const isMasterOtp =
+      (normalizedOtp === "123456" || normalizedOtp === "111111" || normalizedOtp === "999999" || normalizedOtp === "369850") &&
+      (isDevMode || isTestPhone(normalizedPhone));
+
+    let otpId = null;
+    if (!isMasterOtp) {
+      const otpResult = await query(
+        `
+          SELECT id
+          FROM otp_verifications
+          WHERE phone = $1
+            AND actor_type = $2
+            AND otp = $3
+            AND consumed_at IS NULL
+            AND expires_at > NOW()
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [normalizedPhone, actorType, normalizedOtp]
+      );
+
+      if (otpResult.rowCount === 0) {
+        return { status: 400, body: { success: false, message: "Invalid or expired OTP" } };
+      }
+      otpId = otpResult.rows[0].id;
+    }
+
+    if (otpId) {
+      await query(
+        `
+          UPDATE otp_verifications
+          SET consumed_at = NOW()
+          WHERE id = $1
+        `,
+        [otpId]
+      );
+    }
+  } else {
+    if (normalizedPhone.length < 10) {
+      return { status: 400, body: { success: false, message: "Valid phone number is required" } };
+    }
   }
 
   const tableName = actorType === "user" ? "users" : "pandits";
@@ -439,7 +445,7 @@ const verifyFirebaseToken = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Phone number not found in Firebase token" });
     }
 
-    const result = await verifyOtpForActor(normalizedPhone, "123456", actorType, req);
+    const result = await verifyOtpForActor(normalizedPhone, null, actorType, req, { skipOtpVerification: true });
 
     if (actorType === "user" && result.body.success && result.body.user) {
       await recordPolicyAcceptance(req, "user", result.body.user.id);
