@@ -1,9 +1,9 @@
 export const getApiUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
-    return envUrl;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim();
   }
-  return "http://192.168.1.11:4000/api";
+  return "https://api.panditoo.in/api";
 };
 
 export const API_URL = getApiUrl();
