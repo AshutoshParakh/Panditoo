@@ -57,12 +57,8 @@ const createRazorpayOrder = async ({ amount, receipt, notes = {} }) => {
 };
 
 const verifyPaymentSignature = ({ orderId, paymentId, signature }) => {
-  const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
-  if (
-    (isStubMode() || isDevMode) &&
-    (signature === "stub_signature" || signature === "test_signature" || signature === "simulated_success")
-  ) {
-    return true;
+  if (isStubMode()) {
+    return signature === "stub_signature" || signature === "test_signature" || signature === "simulated_success";
   }
 
   const { keySecret } = getRazorpayConfig();

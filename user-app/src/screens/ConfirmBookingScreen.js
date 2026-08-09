@@ -183,42 +183,19 @@ export default function ConfirmBookingScreen({ route, navigation }) {
                   data.razorpay_signature
                 );
               })
-              .catch(async (err) => {
-                console.log("[DEV MODE] Razorpay native checkout skipped:", err?.message || err);
-                try {
-                  await verifyPayment(
-                    currentBooking.id,
-                    razorpay_order.id,
-                    `pay_test_${Date.now()}`,
-                    "stub_signature"
-                  );
-                } catch (fallbackErr) {
-                  setPaymentError(fallbackErr.message || "Payment failed");
-                  setLoading(false);
-                }
+              .catch((err) => {
+                console.log("Razorpay checkout issue/cancellation:", err?.description || err?.message || err);
+                const isCancelled = err?.code === 2 || String(err?.description || err?.message || "").toLowerCase().includes("cancel");
+                setPaymentError(isCancelled ? "Payment was cancelled." : (err?.description || err?.message || "Payment failed. Please try again."));
+                setLoading(false);
               });
           } else {
-            // Expo Go / Dev mode fallback (Native module not linked in Expo Go)
-            await verifyPayment(
-              currentBooking.id,
-              razorpay_order.id,
-              `pay_test_${Date.now()}`,
-              "stub_signature"
-            );
+            throw new Error("Razorpay payment gateway is not available on this device/environment.");
           }
         } catch (checkoutErr) {
-          console.warn("Razorpay native checkout unavailable in Expo Go, using dev fallback:", checkoutErr.message);
-          try {
-            await verifyPayment(
-              currentBooking.id,
-              razorpay_order.id,
-              `pay_test_${Date.now()}`,
-              "test_signature"
-            );
-          } catch (fallbackErr) {
-            setPaymentError(fallbackErr.message || "Payment service unavailable");
-            setLoading(false);
-          }
+          console.warn("Razorpay checkout failed:", checkoutErr.message);
+          setPaymentError(checkoutErr.message || "Payment service unavailable");
+          setLoading(false);
         }
       }
     } catch (err) {
