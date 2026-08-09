@@ -10,6 +10,7 @@ import {
   Row,
   Select,
   Space,
+  Statistic,
   Switch,
   Table,
   Tag,
@@ -254,6 +255,13 @@ export function PaymentsPage() {
   const { token, handleAuthError } = useAdminGuard();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({
+    totalCollected: 0,
+    poojaPrepaymentsTotal: 0,
+    creditPurchasesTotal: 0,
+    totalCount: 0,
+    paidCount: 0,
+  });
   const [filters, setFilters] = useState({ search: "", status: undefined, type: undefined, page: 1, limit: 10, total: 0 });
 
   const loadRows = async (next = filters) => {
@@ -265,6 +273,7 @@ export function PaymentsPage() {
       if (next.type) params.set("type", next.type);
       const response = await adminApiRequest(`/admin/payments?${params.toString()}`, { token });
       setRows(response.data || []);
+      if (response.summary) setSummary(response.summary);
       setFilters((current) => ({ ...current, ...next, total: response.pagination?.total || 0, limit: response.pagination?.limit || next.limit }));
     } catch (error) {
       if (handleAuthError(error)) return;
@@ -312,9 +321,34 @@ export function PaymentsPage() {
   ];
 
   return (
-    <Card title="Payments Ledger" extra={<Space><Input.Search placeholder="Search payment/order/booking id" allowClear onSearch={(value) => loadRows({ ...filters, page: 1, search: value })} style={{ width: 260 }} /><Select placeholder="Status" allowClear style={{ width: 140 }} options={[{ label: "created", value: "created" }, { label: "paid", value: "paid" }, { label: "failed", value: "failed" }, { label: "refunded", value: "refunded" }]} onChange={(value) => loadRows({ ...filters, page: 1, status: value || undefined })} /><Select placeholder="Type" allowClear style={{ width: 160 }} options={[{ label: "Prepayment", value: "prepayment" }, { label: "Payout", value: "pandit_payout" }, { label: "Credit Purchase", value: "credit_purchase" }]} onChange={(value) => loadRows({ ...filters, page: 1, type: value || undefined })} /><Button icon={<DownloadOutlined />} onClick={exportCsv}>Export CSV</Button><Button icon={<ReloadOutlined />} onClick={() => loadRows(filters)}>Refresh</Button></Space>}>
-      <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ current: filters.page, pageSize: filters.limit, total: filters.total, onChange: (nextPage, nextPageSize) => loadRows({ ...filters, page: nextPage, limit: nextPageSize }) }} scroll={{ x: 1500 }} />
-    </Card>
+    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: "#F6FFED", border: "1px solid #B7EB8F" }}>
+            <Statistic title={<Text type="secondary" style={{ fontSize: 12, fontWeight: 700 }}>TOTAL REVENUE COLLECTED</Text>} value={summary.totalCollected} formatter={(val) => formatCurrency(val)} valueStyle={{ color: "#3f8600", fontWeight: 800 }} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: "#FFFBE6", border: "1px solid #FFE58F" }}>
+            <Statistic title={<Text type="secondary" style={{ fontSize: 12, fontWeight: 700 }}>POOJA PREPAYMENTS</Text>} value={summary.poojaPrepaymentsTotal} formatter={(val) => formatCurrency(val)} valueStyle={{ color: "#d48806", fontWeight: 800 }} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: "#F9F0FF", border: "1px solid #D3ADF7" }}>
+            <Statistic title={<Text type="secondary" style={{ fontSize: 12, fontWeight: 700 }}>PANDIT CREDIT TOP-UPS</Text>} value={summary.creditPurchasesTotal} formatter={(val) => formatCurrency(val)} valueStyle={{ color: "#722ed1", fontWeight: 800 }} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card bordered={false} style={{ background: "#E6F7FF", border: "1px solid #91D5FF" }}>
+            <Statistic title={<Text type="secondary" style={{ fontSize: 12, fontWeight: 700 }}>PAID TRANSACTIONS</Text>} value={summary.paidCount} valueStyle={{ color: "#1890ff", fontWeight: 800 }} suffix={`/ ${summary.totalCount}`} />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card title="Payments Ledger" extra={<Space wrap><Input.Search placeholder="Search payment/order/booking id" allowClear onSearch={(value) => loadRows({ ...filters, page: 1, search: value })} style={{ width: 220 }} /><Select placeholder="Status" allowClear style={{ width: 120 }} options={[{ label: "created", value: "created" }, { label: "paid", value: "paid" }, { label: "failed", value: "failed" }, { label: "refunded", value: "refunded" }]} onChange={(value) => loadRows({ ...filters, page: 1, status: value || undefined })} /><Select placeholder="Filter by Category" allowClear value={filters.type} style={{ width: 190 }} options={[{ label: "All Types", value: undefined }, { label: "🛕 Pooja Prepayment", value: "prepayment" }, { label: "🪙 Pandit Credit Top-up", value: "credit_purchase" }, { label: "💸 Payout", value: "pandit_payout" }]} onChange={(value) => loadRows({ ...filters, page: 1, type: value || undefined })} /><Button icon={<DownloadOutlined />} onClick={exportCsv}>Export CSV</Button><Button icon={<ReloadOutlined />} onClick={() => loadRows(filters)}>Refresh</Button></Space>}>
+        <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ current: filters.page, pageSize: filters.limit, total: filters.total, onChange: (nextPage, nextPageSize) => loadRows({ ...filters, page: nextPage, limit: nextPageSize }) }} scroll={{ x: 1500 }} />
+      </Card>
+    </Space>
   );
 }
 

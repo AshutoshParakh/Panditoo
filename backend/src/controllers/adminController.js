@@ -349,7 +349,7 @@ const listAdminPayments = async (req, res, next) => {
       )
     `;
 
-    const [countResult, paymentsResult] = await Promise.all([
+    const [countResult, paymentsResult, summaryResult] = await Promise.all([
       query(`${cteQuery} SELECT COUNT(*)::int AS total FROM combined_payments p ${whereClause}`, values),
       query(
         `${cteQuery}
@@ -360,13 +360,32 @@ const listAdminPayments = async (req, res, next) => {
         `,
         [...values, limit, offset]
       ),
+      query(
+        `${cteQuery}
+        SELECT
+          COALESCE(SUM(CASE WHEN p.status = 'paid' THEN p.amount ELSE 0 END), 0)::float AS total_collected,
+          COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.type = 'prepayment' THEN p.amount ELSE 0 END), 0)::float AS pooja_prepayments_total,
+          COALESCE(SUM(CASE WHEN p.status = 'paid' AND p.type = 'credit_purchase' THEN p.amount ELSE 0 END), 0)::float AS credit_purchases_total,
+          COUNT(*)::int AS total_count,
+          COUNT(CASE WHEN p.status = 'paid' THEN 1 END)::int AS paid_count
+        FROM combined_payments p
+        `
+      ),
     ]);
 
     const total = countResult.rows[0]?.total || 0;
+    const summaryData = summaryResult.rows[0] || {};
 
     return res.status(200).json({
       success: true,
       data: paymentsResult.rows,
+      summary: {
+        totalCollected: summaryData.total_collected || 0,
+        poojaPrepaymentsTotal: summaryData.pooja_prepayments_total || 0,
+        creditPurchasesTotal: summaryData.credit_purchases_total || 0,
+        totalCount: summaryData.total_count || 0,
+        paidCount: summaryData.paid_count || 0,
+      },
       pagination: {
         page,
         limit,
