@@ -2,6 +2,7 @@ import {
   BellOutlined,
   BookOutlined,
   CalendarOutlined,
+  CompassOutlined,
   CreditCardOutlined,
   DashboardOutlined,
   LogoutOutlined,
@@ -32,6 +33,7 @@ const { Text, Title } = Typography;
 
 const menuItems = [
   { key: "/overview", icon: <DashboardOutlined />, label: <NavLink to="/overview">Overview</NavLink> },
+  { key: "/customer-journey", icon: <CompassOutlined />, label: <NavLink to="/customer-journey">Customer Journey</NavLink> },
   { key: "/bookings", icon: <CalendarOutlined />, label: <NavLink to="/bookings">Bookings</NavLink> },
   { key: "/pandits", icon: <SafetyCertificateOutlined />, label: <NavLink to="/pandits">Pandits</NavLink> },
   { key: "/users", icon: <UserOutlined />, label: <NavLink to="/users">Users</NavLink> },
@@ -45,6 +47,7 @@ const menuItems = [
 
 const routeTitleMap = {
   "/overview": "Overview",
+  "/customer-journey": "Customer Journey & Funnel",
   "/bookings": "Bookings",
   "/pandits": "Pandits",
   "/users": "Users",

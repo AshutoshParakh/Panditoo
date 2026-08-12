@@ -1,3 +1,8 @@
+const sanitizeEnvValue = (value) => {
+  if (typeof value !== "string") return value;
+  return value.trim().replace(/^['"]|['"]$/g, "");
+};
+
 const sendOTP = async (phone, otp, options = {}) => {
   const provider = process.env.OTP_PROVIDER;
   const purpose = options.purpose || "verification";
@@ -71,9 +76,10 @@ const sendOTP = async (phone, otp, options = {}) => {
   }
 
   if (provider === "aws") {
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-    const region = process.env.AWS_REGION || "ap-south-1";
+    const accessKeyId = sanitizeEnvValue(process.env.AWS_ACCESS_KEY_ID);
+    const secretAccessKey = sanitizeEnvValue(process.env.AWS_SECRET_ACCESS_KEY);
+    const sessionToken = sanitizeEnvValue(process.env.AWS_SESSION_TOKEN);
+    const region = sanitizeEnvValue(process.env.AWS_REGION) || "ap-south-1";
 
     if (!accessKeyId || !secretAccessKey) {
       console.error("[OTP:aws] Missing AWS credentials in environment variables");
@@ -87,6 +93,7 @@ const sendOTP = async (phone, otp, options = {}) => {
         credentials: {
           accessKeyId,
           secretAccessKey,
+          ...(sessionToken ? { sessionToken } : {}),
         },
       });
 

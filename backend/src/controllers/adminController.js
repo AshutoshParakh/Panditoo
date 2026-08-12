@@ -63,6 +63,23 @@ const logPanditAdminAction = async ({ panditId, adminId, actionType, reason = nu
 
 const listAllPandits = async (req, res, next) => {
   try {
+    const startDate = req.query.startDate ? String(req.query.startDate).trim() : "";
+    const endDate = req.query.endDate ? String(req.query.endDate).trim() : "";
+
+    const filters = [];
+    const values = [];
+
+    if (startDate) {
+      values.push(startDate);
+      filters.push(`p.created_at >= $${values.length}`);
+    }
+    if (endDate) {
+      values.push(`${endDate} 23:59:59`);
+      filters.push(`p.created_at <= $${values.length}`);
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
     const result = await query(
       `
       SELECT
@@ -87,9 +104,11 @@ const listAllPandits = async (req, res, next) => {
         COUNT(b.id)::int AS total_bookings
       FROM pandits p
       LEFT JOIN bookings b ON b.confirmed_pandit_id = p.id
+      ${whereClause}
       GROUP BY p.id
       ORDER BY p.created_at DESC
-      `
+      `,
+      values
     );
 
     return res.status(200).json({
@@ -226,6 +245,8 @@ const listAdminUsers = async (req, res, next) => {
   try {
     const { page, limit, offset } = parsePagination(req);
     const search = String(req.query.search || "").trim();
+    const startDate = req.query.startDate ? String(req.query.startDate).trim() : "";
+    const endDate = req.query.endDate ? String(req.query.endDate).trim() : "";
 
     const filters = [];
     const values = [];
@@ -233,6 +254,16 @@ const listAdminUsers = async (req, res, next) => {
     if (search) {
       values.push(`%${search}%`);
       filters.push(`(u.name ILIKE $${values.length} OR u.phone ILIKE $${values.length})`);
+    }
+
+    if (startDate) {
+      values.push(startDate);
+      filters.push(`u.created_at >= $${values.length}`);
+    }
+
+    if (endDate) {
+      values.push(`${endDate} 23:59:59`);
+      filters.push(`u.created_at <= $${values.length}`);
     }
 
     const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
@@ -284,6 +315,8 @@ const listAdminPayments = async (req, res, next) => {
     const status = String(req.query.status || "").trim();
     const type = String(req.query.type || "").trim();
     const search = String(req.query.search || "").trim();
+    const startDate = req.query.startDate ? String(req.query.startDate).trim() : "";
+    const endDate = req.query.endDate ? String(req.query.endDate).trim() : "";
 
     const filters = [];
     const values = [];
@@ -296,6 +329,16 @@ const listAdminPayments = async (req, res, next) => {
     if (type) {
       values.push(type);
       filters.push(`p.type = $${values.length}`);
+    }
+
+    if (startDate) {
+      values.push(startDate);
+      filters.push(`p.created_at >= $${values.length}`);
+    }
+
+    if (endDate) {
+      values.push(`${endDate} 23:59:59`);
+      filters.push(`p.created_at <= $${values.length}`);
     }
 
     if (search) {

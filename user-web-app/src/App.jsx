@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api, money, token } from "./api";
-import { sendFirebaseOtp } from "./firebase";
+import { trackJourneyEvent } from "./analytics";
 import "./card-interactions.css";
 import {
   CustomerBookingFlow,
@@ -982,58 +982,18 @@ function AuthModal({ close, done, openLegal }) {
     setError("");
     try {
       if (step === "phone") {
-        if (["9999999999", "9876543210"].includes(phone)) {
-          await api("/auth/user/send-otp", { method: "POST", body: { phone } });
-          setStep("otp");
-        } else {
-          try {
-            await sendFirebaseOtp(phone, "recaptcha-container");
-            setStep("otp");
-          } catch (fbErr) {
-            console.warn("Firebase OTP error, fallback to backend:", fbErr.message);
-            await api("/auth/user/send-otp", { method: "POST", body: { phone } });
-            setStep("otp");
-          }
-        }
+        await api("/auth/user/send-otp", { method: "POST", body: { phone } });
+        setStep("otp");
       } else if (step === "otp") {
-        if (["9999999999", "9876543210"].includes(phone) || !window.confirmationResult) {
-          const r = await api("/auth/user/verify-otp", {
-            method: "POST",
-            body: { phone, otp },
-          });
-          if (r.isNewUser) setStep("register");
-          else {
-            localStorage.setItem("panditoo-token", r.token);
-            localStorage.setItem("panditoo-user-id", r.user.id);
-            done();
-          }
-        } else {
-          try {
-            const userCred = await window.confirmationResult.confirm(otp);
-            const idToken = await userCred.user.getIdToken();
-            const r = await api("/auth/verify-firebase", {
-              method: "POST",
-              body: { idToken, actorType: "user" },
-            });
-            if (r.isNewUser) setStep("register");
-            else {
-              localStorage.setItem("panditoo-token", r.token);
-              localStorage.setItem("panditoo-user-id", r.user.id);
-              done();
-            }
-          } catch (fbVerErr) {
-            console.warn("Firebase confirmation error, fallback to backend verify:", fbVerErr.message);
-            const r = await api("/auth/user/verify-otp", {
-              method: "POST",
-              body: { phone, otp },
-            });
-            if (r.isNewUser) setStep("register");
-            else {
-              localStorage.setItem("panditoo-token", r.token);
-              localStorage.setItem("panditoo-user-id", r.user.id);
-              done();
-            }
-          }
+        const r = await api("/auth/user/verify-otp", {
+          method: "POST",
+          body: { phone, otp },
+        });
+        if (r.isNewUser) setStep("register");
+        else {
+          localStorage.setItem("panditoo-token", r.token);
+          localStorage.setItem("panditoo-user-id", r.user.id);
+          done();
         }
       } else {
         if (!accepted)
@@ -1209,7 +1169,6 @@ function AuthModal({ close, done, openLegal }) {
           <small className="secure-note">
             ▣ Your information is protected and securely transmitted.
           </small>
-          <div id="recaptcha-container"></div>
         </div>
       </div>
     </div>
@@ -2033,11 +1992,23 @@ export default function App() {
     setAuthed(false);
     navigate("/");
   };
-  if (loading && !data.poojas.length && !serviceError) return <Loader full />;
+  useEffect(() => {
+    trackJourneyEvent({ eventType: "session_start", pagePath: window.location.pathname });
+  }, []);
+
   const poojaId = path.split("/")[2];
   const pooja = data.poojas.find(
     (p) => String(p.id) === decodeURIComponent(poojaId || ""),
   );
+
+  useEffect(() => {
+    trackJourneyEvent({ eventType: "page_view", pagePath: path });
+    if (path.startsWith("/pooja/") && pooja) {
+      trackJourneyEvent({ eventType: "pooja_view", poojaId: pooja.id, poojaName: pooja.name || pooja.name_en, dropoffStage: "pooja_details" });
+    }
+  }, [path, pooja?.id]);
+
+  if (loading && !data.poojas.length && !serviceError) return <Loader full />;
   const shell = {
     authed,
     profile: data.profile,

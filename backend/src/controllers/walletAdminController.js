@@ -1,5 +1,87 @@
 const { pool, query } = require("../config/db");
 
-const listWithdrawals=async(req,res,next)=>{try{const status=req.query.status||null;const r=await query(`SELECT w.*,p.name AS pandit_name,p.phone AS pandit_phone,p.bank_account_details FROM withdrawal_requests w INNER JOIN pandits p ON p.id=w.pandit_id WHERE ($1::text IS NULL OR w.status=$1) ORDER BY w.requested_at DESC`,[status]);res.json({success:true,data:r.rows});}catch(e){next(e);}};
-const processWithdrawal=async(req,res,next)=>{const client=await pool.connect();try{const nextStatus=req.body.status;if(!["approved","paid","rejected"].includes(nextStatus))return res.status(400).json({success:false,message:"Status must be approved, paid or rejected"});await client.query("BEGIN");const current=await client.query("SELECT * FROM withdrawal_requests WHERE id=$1 FOR UPDATE",[req.params.id]);if(!current.rowCount){await client.query("ROLLBACK");return res.status(404).json({success:false,message:"Withdrawal not found"});}const item=current.rows[0];if(["paid","rejected"].includes(item.status)){await client.query("ROLLBACK");return res.status(409).json({success:false,message:"Withdrawal is already final"});}if(nextStatus==="paid"&&item.status!=="approved"){await client.query("ROLLBACK");return res.status(409).json({success:false,message:"Approve the withdrawal before marking it paid"});}if(nextStatus==="rejected"){await client.query("INSERT INTO pandit_wallets(pandit_id) VALUES($1) ON CONFLICT DO NOTHING",[item.pandit_id]);await client.query("UPDATE pandit_wallets SET available_balance=available_balance+$1,updated_at=NOW() WHERE pandit_id=$2",[item.amount,item.pandit_id]);await client.query("INSERT INTO wallet_transactions(pandit_id,withdrawal_request_id,transaction_type,direction,amount,description) VALUES($1,$2,'withdrawal_refund','credit',$3,'Rejected withdrawal returned to wallet')",[item.pandit_id,item.id,item.amount]);}const updated=await client.query("UPDATE withdrawal_requests SET status=$1,admin_note=$2,processed_at=NOW(),processed_by=$3 WHERE id=$4 RETURNING *",[nextStatus,req.body.admin_note||null,req.admin.id,item.id]);await client.query("COMMIT");res.json({success:true,data:updated.rows[0]});}catch(e){try{await client.query("ROLLBACK");}catch{}next(e);}finally{client.release();}};
-module.exports={listWithdrawals,processWithdrawal};
+const listWithdrawals = async (req, res, next) => {
+  try {
+    const status = req.query.status ? String(req.query.status).trim() : null;
+    const startDate = req.query.startDate ? String(req.query.startDate).trim() : null;
+    const endDate = req.query.endDate ? String(req.query.endDate).trim() : null;
+
+    const filters = [];
+    const values = [];
+
+    if (status) {
+      values.push(status);
+      filters.push(`w.status = $${values.length}`);
+    }
+
+    if (startDate) {
+      values.push(startDate);
+      filters.push(`w.requested_at >= $${values.length}`);
+    }
+
+    if (endDate) {
+      values.push(`${endDate} 23:59:59`);
+      filters.push(`w.requested_at <= $${values.length}`);
+    }
+
+    const whereClause = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+    const r = await query(
+      `SELECT w.*, p.name AS pandit_name, p.phone AS pandit_phone, p.bank_account_details
+       FROM withdrawal_requests w
+       INNER JOIN pandits p ON p.id = w.pandit_id
+       ${whereClause}
+       ORDER BY w.requested_at DESC`,
+      values
+    );
+
+    res.json({ success: true, data: r.rows });
+  } catch (e) {
+    next(e);
+  }
+};
+
+const processWithdrawal = async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const nextStatus = req.body.status;
+    if (!["approved", "paid", "rejected"].includes(nextStatus)) {
+      return res.status(400).json({ success: false, message: "Status must be approved, paid or rejected" });
+    }
+
+    await client.query("BEGIN");
+    const current = await client.query("SELECT * FROM withdrawal_requests WHERE id=$1 FOR UPDATE", [req.params.id]);
+    if (!current.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, message: "Withdrawal not found" });
+    }
+
+    const item = current.rows[0];
+    if (["paid", "rejected"].includes(item.status)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "Withdrawal is already final" });
+    }
+
+    if (nextStatus === "paid" && item.status !== "approved") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "Approve the withdrawal before marking it paid" });
+    }
+
+    if (nextStatus === "rejected") {
+      await client.query("INSERT INTO pandit_wallets(pandit_id) VALUES($1) ON CONFLICT DO NOTHING", [item.pandit_id]);
+      await client.query("UPDATE pandit_wallets SET available_balance=available_balance+$1,updated_at=NOW() WHERE pandit_id=$2", [item.amount, item.pandit_id]);
+      await client.query("INSERT INTO wallet_transactions(pandit_id,withdrawal_request_id,transaction_type,direction,amount,description) VALUES($1,$2,'withdrawal_refund','credit',$3,'Rejected withdrawal returned to wallet')", [item.pandit_id, item.id, item.amount]);
+    }
+
+    const updated = await client.query("UPDATE withdrawal_requests SET status=$1,admin_note=$2,processed_at=NOW(),processed_by=$3 WHERE id=$4 RETURNING *", [nextStatus, req.body.admin_note || null, req.admin.id, item.id]);
+    await client.query("COMMIT");
+    res.json({ success: true, data: updated.rows[0] });
+  } catch (e) {
+    try { await client.query("ROLLBACK"); } catch {}
+    next(e);
+  } finally {
+    client.release();
+  }
+};
+
+module.exports = { listWithdrawals, processWithdrawal };
