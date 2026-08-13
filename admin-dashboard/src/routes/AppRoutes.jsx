@@ -16,6 +16,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { PricingControlPage } from "../pages/PricingControlPage";
 import { WithdrawalsPage } from "../pages/WithdrawalsPage";
 import { ReferralCampaignsPage } from "../pages/ReferralCampaignsPage";
+import { CustomerJourneyPage } from "../pages/CustomerJourneyPage";
 
 export function AppRoutes() {
   return (
@@ -26,6 +27,7 @@ export function AppRoutes() {
         <Route element={<AdminShell />}>
           <Route path="/" element={<Navigate to="/overview" replace />} />
           <Route path="/overview" element={<OverviewPage />} />
+          <Route path="/customer-journey" element={<CustomerJourneyPage />} />
           <Route path="/bookings" element={<BookingsPage />} />
           <Route path="/pandits" element={<PanditsPage />} />
           <Route path="/users" element={<UsersPage />} />

@@ -31,10 +31,12 @@ const router = express.Router();
 const pricingAdmin = require("../controllers/pricingAdminController");
 const walletAdmin = require("../controllers/walletAdminController");
 const referrals = require("../controllers/referralController");
+const analytics = require("../controllers/analyticsController");
 
 router.use(authenticateAdmin);
 
 router.get("/dashboard-stats", getDashboardStats);
+router.get("/analytics/journey-funnel", analytics.getJourneyAnalytics);
 router.get("/referrals", referrals.listCampaigns);
 router.post("/referrals", referrals.saveCampaign);
 router.put("/referrals/:id", referrals.saveCampaign);

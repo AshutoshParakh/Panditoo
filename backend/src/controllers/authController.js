@@ -5,12 +5,17 @@ const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
 const { signAuthToken } = require("../utils/jwt");
 const { getReferralCampaign } = require("../services/referralService");
+<<<<<<< HEAD
 const { admin, initFirebaseAdmin } = require("../config/firebase");
+=======
+>>>>>>> 344fc42a6ccc15f2ef87613e870b576de876b87c
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const OTP_RATE_LIMIT_MAX = Number(process.env.OTP_RATE_LIMIT_MAX || 3);
 const OTP_RATE_LIMIT_WINDOW_MINUTES = Number(process.env.OTP_RATE_LIMIT_WINDOW_MINUTES || 10);
 const CURRENT_POLICY_VERSION = "2026-08-09";
+const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
+const allowDebugOtp = isDevMode || process.env.ALLOW_DEBUG_OTP === "true";
 
 const validatePolicyAcceptance = (body) => (
   body.terms_accepted === true &&
@@ -87,7 +92,6 @@ const sendOtpForActor = async (phone, actorType) => {
     [normalizedPhone, actorType, OTP_RATE_LIMIT_WINDOW_MINUTES]
   );
 
-  const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
   const effectiveMax = isDevMode ? 50 : OTP_RATE_LIMIT_MAX;
 
   if (rateLimitResult.rows[0].request_count >= effectiveMax) {
@@ -111,6 +115,7 @@ const sendOtpForActor = async (phone, actorType) => {
   );
 
   const delivery = await sendOTP(normalizedPhone, otp);
+<<<<<<< HEAD
   if (!delivery?.success) {
     await query(
       `UPDATE otp_verifications SET consumed_at = NOW() WHERE phone = $1 AND actor_type = $2 AND otp = $3 AND consumed_at IS NULL`,
@@ -122,6 +127,22 @@ const sendOtpForActor = async (phone, actorType) => {
     };
   }
   if (process.env.NODE_ENV !== "production") logOtpIssued({ actorType, phone: normalizedPhone, otp });
+=======
+  const shouldFailClosed = !isDevMode && process.env.OTP_PROVIDER && process.env.OTP_PROVIDER !== "mock";
+
+  if (!delivery.success && shouldFailClosed) {
+    console.error(`[AUTH:OTP] Failed to deliver ${actorType} OTP to +91${normalizedPhone}: ${delivery.error}`);
+    return {
+      status: 502,
+      body: {
+        success: false,
+        message: "Unable to send OTP right now. Please try again shortly.",
+      },
+    };
+  }
+
+  logOtpIssued({ actorType, phone: normalizedPhone, otp });
+>>>>>>> 344fc42a6ccc15f2ef87613e870b576de876b87c
 
   return {
     status: 200,
@@ -129,7 +150,11 @@ const sendOtpForActor = async (phone, actorType) => {
       success: true,
       message: "OTP sent successfully",
       expiresInMinutes: OTP_EXPIRY_MINUTES,
+<<<<<<< HEAD
       ...(process.env.NODE_ENV !== "production" ? { debugOtp: otp } : {}),
+=======
+      ...(allowDebugOtp ? { otp, debugOtp: otp } : {}),
+>>>>>>> 344fc42a6ccc15f2ef87613e870b576de876b87c
     },
   };
 };
@@ -143,7 +168,6 @@ const verifyOtpForActor = async (phone, otp, actorType, req = null, options = {}
       return { status: 400, body: { success: false, message: "Phone and 6-digit OTP are required" } };
     }
 
-    const isDevMode = !process.env.NODE_ENV || process.env.NODE_ENV === "development";
     const isMasterOtp =
       (normalizedOtp === "123456" || normalizedOtp === "111111" || normalizedOtp === "999999" || normalizedOtp === "369850") &&
       (isDevMode || isTestPhone(normalizedPhone));
@@ -431,6 +455,7 @@ const verifyPanditOtp = async (req, res, next) => {
   }
 };
 
+<<<<<<< HEAD
 const verifyFirebaseToken = async (req, res, next) => {
   try {
     const { idToken, actorType = "user" } = req.body;
@@ -471,6 +496,8 @@ const verifyFirebaseToken = async (req, res, next) => {
   }
 };
 
+=======
+>>>>>>> 344fc42a6ccc15f2ef87613e870b576de876b87c
 const adminLogin = async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
@@ -589,7 +616,6 @@ module.exports = {
   verifyUserOtp,
   sendPanditOtp,
   verifyPanditOtp,
-  verifyFirebaseToken,
   registerUser,
   registerPandit,
   getCurrentUser,

@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { api, money } from "./api";
+import { trackJourneyEvent } from "./analytics";
 import "./customer-features.css";
 
 const ADDRESS_KEY = "panditoo-saved-addresses-v1";
@@ -126,7 +127,40 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
 
   useEffect(() => {
     api("/booking-config").then((result) => setConfig(result.data)).catch((e) => setError(e.message));
+    trackJourneyEvent({
+      eventType: "booking_start",
+      poojaId: pooja.id,
+      poojaName: pooja.name || pooja.name_en,
+      dropoffStage: "date_time_selection",
+    });
   }, []);
+
+  useEffect(() => {
+    const stageNames = ["date_time_selection", "address_entry", "pandit_selection", "payment_gateway", "booking_completed"];
+    const currentStage = stageNames[step] || "unknown";
+    if (step === 1) {
+      trackJourneyEvent({ eventType: "date_time_select", poojaId: pooja.id, poojaName: pooja.name || pooja.name_en, dropoffStage: currentStage, metadata: { date: form.date, time: form.time } });
+    } else if (step === 2) {
+      trackJourneyEvent({ eventType: "address_enter", poojaId: pooja.id, poojaName: pooja.name || pooja.name_en, dropoffStage: currentStage, metadata: { address: form.address } });
+    } else if (step === 3) {
+      trackJourneyEvent({ eventType: "checkout_view", poojaId: pooja.id, poojaName: pooja.name || pooja.name_en, dropoffStage: currentStage, metadata: { selectedPanditCount: selected.length } });
+    } else if (step === 4) {
+      trackJourneyEvent({ eventType: "booking_completed", poojaId: pooja.id, poojaName: pooja.name || pooja.name_en, dropoffStage: null, metadata: { bookingId: completedBooking?.id } });
+    }
+  }, [step]);
+
+  const handleClose = () => {
+    if (step < 4) {
+      const stageNames = ["date_time_selection", "address_entry", "pandit_selection", "payment_gateway"];
+      trackJourneyEvent({
+        eventType: "funnel_dropoff",
+        poojaId: pooja.id,
+        poojaName: pooja.name || pooja.name_en,
+        dropoffStage: stageNames[step] || "unknown",
+      });
+    }
+    close();
+  };
   useEffect(() => {
     const storedRef = getStoredReferral();
     const autoRef = (profile?.referral_eligible && profile?.referral_code)
@@ -238,6 +272,12 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
   const verifyPayment = async (bookingId, response) => api("/payments/verify", { method: "POST", auth: true, body: { booking_id: bookingId, ...response } });
   const pay = async () => {
     setBusy(true); setError("");
+    trackJourneyEvent({
+      eventType: "payment_initiated",
+      poojaId: pooja.id,
+      poojaName: pooja.name || pooja.name_en,
+      dropoffStage: "payment_gateway",
+    });
     try {
       const booking = draftBooking || (await api("/bookings/create", { method: "POST", auth: true, body: { pooja_type_id: pooja.id, booking_date: form.date, booking_time: form.time, address: form.address.trim(), latitude: form.lat, longitude: form.lng, selected_pandit_ids: selected, coupon_code: quote?.coupon?.code, referral_code: quote?.referral?.code } })).booking;
       setDraftBooking(booking);
@@ -255,7 +295,7 @@ export function CustomerBookingFlow({ pooja, profile, close, refresh }) {
   };
 
   return <div className="booking-overlay"><div className="booking-flow customer-flow">
-    <header><button onClick={step > 0 && step < 4 ? () => setStep((value) => value - 1) : close}>{step > 0 && step < 4 ? "←" : "×"}</button><b>PANDITOO</b><span>STEP {Math.min(step + 1, 4)} OF 4</span></header>
+    <header><button onClick={step > 0 && step < 4 ? () => setStep((value) => value - 1) : handleClose}>{step > 0 && step < 4 ? "←" : "×"}</button><b>PANDITOO</b><span>STEP {Math.min(step + 1, 4)} OF 4</span></header>
     {step < 4 && <div className="progress">{[0, 1, 2, 3].map((value) => <i className={value <= step ? "active" : ""} key={value} />)}</div>}
     <InlineNotice>{error}</InlineNotice>
     <div className="booking-body">

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api, money, token } from "./api";
-import { sendFirebaseOtp } from "./firebase";
+import { trackJourneyEvent } from "./analytics";
 import "./card-interactions.css";
 import {
   CustomerBookingFlow,
@@ -983,6 +983,7 @@ function AuthModal({ close, done, openLegal }) {
     setError("");
     try {
       if (step === "phone") {
+<<<<<<< HEAD
         if (!accepted) throw new Error("Please accept the Terms & Conditions and Privacy Policy before continuing.");
         if (useBackendOtp || ["9999999999", "9876543210"].includes(phone)) {
           await api("/auth/user/send-otp", { method: "POST", body: { phone } });
@@ -1043,6 +1044,20 @@ function AuthModal({ close, done, openLegal }) {
               done();
             }
           }
+=======
+        await api("/auth/user/send-otp", { method: "POST", body: { phone } });
+        setStep("otp");
+      } else if (step === "otp") {
+        const r = await api("/auth/user/verify-otp", {
+          method: "POST",
+          body: { phone, otp },
+        });
+        if (r.isNewUser) setStep("register");
+        else {
+          localStorage.setItem("panditoo-token", r.token);
+          localStorage.setItem("panditoo-user-id", r.user.id);
+          done();
+>>>>>>> 344fc42a6ccc15f2ef87613e870b576de876b87c
         }
       } else {
         if (!accepted)
@@ -1224,7 +1239,6 @@ function AuthModal({ close, done, openLegal }) {
           <small className="secure-note">
             ▣ Your information is protected and securely transmitted.
           </small>
-          <div id="recaptcha-container"></div>
         </div>
       </div>
     </div>
@@ -2048,11 +2062,23 @@ export default function App() {
     setAuthed(false);
     navigate("/");
   };
-  if (loading && !data.poojas.length && !serviceError) return <Loader full />;
+  useEffect(() => {
+    trackJourneyEvent({ eventType: "session_start", pagePath: window.location.pathname });
+  }, []);
+
   const poojaId = path.split("/")[2];
   const pooja = data.poojas.find(
     (p) => String(p.id) === decodeURIComponent(poojaId || ""),
   );
+
+  useEffect(() => {
+    trackJourneyEvent({ eventType: "page_view", pagePath: path });
+    if (path.startsWith("/pooja/") && pooja) {
+      trackJourneyEvent({ eventType: "pooja_view", poojaId: pooja.id, poojaName: pooja.name || pooja.name_en, dropoffStage: "pooja_details" });
+    }
+  }, [path, pooja?.id]);
+
+  if (loading && !data.poojas.length && !serviceError) return <Loader full />;
   const shell = {
     authed,
     profile: data.profile,

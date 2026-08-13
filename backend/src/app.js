@@ -12,6 +12,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
 const ratingRoutes = require("./routes/ratingRoutes");
 const panditRoutes = require("./routes/panditRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 const { notFoundHandler, errorHandler } = require("./middleware/errorMiddleware");
 
 const app = express();
@@ -55,6 +56,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/ratings", ratingRoutes);
 app.use("/api/pandits", panditRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api", publicRoutes);
 
 app.use(notFoundHandler);

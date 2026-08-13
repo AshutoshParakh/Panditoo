@@ -46,6 +46,7 @@ import {
 } from "recharts";
 import { useAuth } from "../auth/AuthProvider";
 import { adminApiRequest, ApiError } from "../lib/api";
+import { DateRangeFilter } from "../components/DateRangeFilter";
 
 const { Paragraph, Text, Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -102,14 +103,18 @@ function usePanditsData() {
   const { token, logout } = useAuth();
   const [pandits, setPandits] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState([null, null]);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [error, setError] = useState("");
 
-  const loadPandits = async () => {
+  const loadPandits = async (dates = dateRange) => {
     try {
       setLoading(true);
       setError("");
-      const response = await adminApiRequest("/admin/pandits", { token });
+      const params = new URLSearchParams();
+      if (dates && dates[0]) params.set("startDate", dates[0]);
+      if (dates && dates[1]) params.set("endDate", dates[1]);
+      const response = await adminApiRequest(`/admin/pandits?${params.toString()}`, { token });
       setPandits(response.data || []);
     } catch (loadError) {
       if (loadError instanceof ApiError && (loadError.status === 401 || loadError.status === 403)) {
@@ -124,7 +129,7 @@ function usePanditsData() {
   };
 
   useEffect(() => {
-    loadPandits();
+    loadPandits(dateRange);
   }, []);
 
   const toggleVerification = async (panditId, verify) => {
@@ -154,6 +159,8 @@ function usePanditsData() {
     loading,
     error,
     actionLoadingId,
+    dateRange,
+    setDateRange,
     reload: loadPandits,
     toggleVerification,
   };
@@ -481,7 +488,7 @@ export function BookingsPage() {
           <Space wrap size={[12, 12]}>
             <Select placeholder="Filter by status" allowClear value={tableState.status} style={{ width: 180 }} options={BOOKING_STATUS_OPTIONS.map((status) => ({ label: status, value: status }))} onChange={(value) => loadBookings({ ...tableState, page: 1, status: value || undefined })} />
             <Select placeholder="Filter by pooja type" allowClear showSearch optionFilterProp="label" value={tableState.poojaTypeId} style={{ width: 240 }} options={poojaTypes.map((pooja) => ({ label: pooja.name_en, value: pooja.id }))} onChange={(value) => loadBookings({ ...tableState, page: 1, poojaTypeId: value || undefined })} />
-            <RangePicker onChange={(values) => loadBookings({ ...tableState, page: 1, startDate: values?.[0] ? values[0].format("YYYY-MM-DD") : undefined, endDate: values?.[1] ? values[1].format("YYYY-MM-DD") : undefined })} />
+            <DateRangeFilter value={[tableState.startDate, tableState.endDate]} onChange={([startDate, endDate]) => loadBookings({ ...tableState, page: 1, startDate, endDate })} />
             <Button icon={<ReloadOutlined />} onClick={() => loadBookings({ ...tableState })}>Refresh</Button>
             <Button onClick={() => loadBookings({ page: 1, limit: tableState.limit, total: tableState.total, sortBy: "created_at", sortOrder: "desc", status: undefined, poojaTypeId: undefined, startDate: undefined, endDate: undefined })}>Reset Filters</Button>
           </Space>
@@ -545,7 +552,7 @@ export function BookingsPage() {
 export function PanditsPage() {
   const navigate = useNavigate();
   const { token, logout } = useAuth();
-  const { pandits, loading, error, reload, toggleVerification, actionLoadingId } = usePanditsData();
+  const { pandits, loading, error, reload, dateRange, setDateRange, toggleVerification, actionLoadingId } = usePanditsData();
   const [selectedPanditId, setSelectedPanditId] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -648,7 +655,7 @@ export function PanditsPage() {
 
   return (
     <>
-      <Card title="Pandit Verification Desk" extra={<Button icon={<ReloadOutlined />} onClick={reload}>Refresh</Button>}>
+      <Card title="Pandit Verification Desk" extra={<Space wrap><DateRangeFilter value={dateRange} onChange={(dates) => { setDateRange(dates); reload(dates); }} /><Button icon={<ReloadOutlined />} onClick={() => reload(dateRange)}>Refresh</Button></Space>}>
         {error ? <Alert type="error" message="Pandit approvals are unavailable" description={error} showIcon className="panel-alert" /> : null}
         <Table rowKey="id" loading={loading} columns={columns} dataSource={pandits} scroll={{ x: 1100 }} pagination={{ pageSize: 8, showSizeChanger: false }} onRow={(record) => ({ onClick: () => openPandit(record) })} />
       </Card>

@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { adminApiRequest, ApiError } from "../lib/api";
+import { DateRangeFilter } from "../components/DateRangeFilter";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -213,13 +214,16 @@ export function UsersPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [dateRange, setDateRange] = useState([null, null]);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, limit: 10 });
 
-  const loadRows = async (nextPage = page, nextSearch = search) => {
+  const loadRows = async (nextPage = page, nextSearch = search, dates = dateRange) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(nextPage), limit: String(pagination.limit), search: nextSearch });
+      if (dates[0]) params.set("startDate", dates[0]);
+      if (dates[1]) params.set("endDate", dates[1]);
       const response = await adminApiRequest(`/admin/users?${params.toString()}`, { token });
       setRows(response.data || []);
       setPagination({ total: response.pagination?.total || 0, limit: response.pagination?.limit || 10 });
@@ -233,7 +237,7 @@ export function UsersPage() {
   };
 
   useEffect(() => {
-    loadRows(1, "");
+    loadRows(1, "", [null, null]);
   }, []);
 
   const columns = [
@@ -245,8 +249,8 @@ export function UsersPage() {
   ];
 
   return (
-    <Card title="Registered Users" extra={<Space><Input.Search placeholder="Search name or phone" allowClear onSearch={(value) => { setSearch(value); loadRows(1, value); }} style={{ width: 280 }} /><Button icon={<ReloadOutlined />} onClick={() => loadRows(page, search)}>Refresh</Button></Space>}>
-      <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ current: page, pageSize: pagination.limit, total: pagination.total, onChange: (nextPage) => loadRows(nextPage, search) }} scroll={{ x: 900 }} />
+    <Card title="Registered Users" extra={<Space wrap><DateRangeFilter value={dateRange} onChange={(dates) => { setDateRange(dates); loadRows(1, search, dates); }} /><Input.Search placeholder="Search name or phone" allowClear onSearch={(value) => { setSearch(value); loadRows(1, value, dateRange); }} style={{ width: 220 }} /><Button icon={<ReloadOutlined />} onClick={() => loadRows(page, search, dateRange)}>Refresh</Button></Space>}>
+      <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ current: page, pageSize: pagination.limit, total: pagination.total, onChange: (nextPage) => loadRows(nextPage, search, dateRange) }} scroll={{ x: 900 }} />
     </Card>
   );
 }
@@ -262,15 +266,18 @@ export function PaymentsPage() {
     totalCount: 0,
     paidCount: 0,
   });
+  const [dateRange, setDateRange] = useState([null, null]);
   const [filters, setFilters] = useState({ search: "", status: undefined, type: undefined, page: 1, limit: 10, total: 0 });
 
-  const loadRows = async (next = filters) => {
+  const loadRows = async (next = filters, dates = dateRange) => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(next.page), limit: String(next.limit) });
       if (next.search) params.set("search", next.search);
       if (next.status) params.set("status", next.status);
       if (next.type) params.set("type", next.type);
+      if (dates && dates[0]) params.set("startDate", dates[0]);
+      if (dates && dates[1]) params.set("endDate", dates[1]);
       const response = await adminApiRequest(`/admin/payments?${params.toString()}`, { token });
       setRows(response.data || []);
       if (response.summary) setSummary(response.summary);
@@ -284,7 +291,7 @@ export function PaymentsPage() {
   };
 
   useEffect(() => {
-    loadRows(filters);
+    loadRows(filters, dateRange);
   }, []);
 
   const exportCsv = async () => {
@@ -293,6 +300,8 @@ export function PaymentsPage() {
       if (filters.search) params.set("search", filters.search);
       if (filters.status) params.set("status", filters.status);
       if (filters.type) params.set("type", filters.type);
+      if (dateRange[0]) params.set("startDate", dateRange[0]);
+      if (dateRange[1]) params.set("endDate", dateRange[1]);
       const response = await adminApiRequest(`/admin/payments?${params.toString()}`, { token });
       const dataset = response.data || [];
       downloadCsv("payments-export.csv", [
@@ -345,8 +354,8 @@ export function PaymentsPage() {
         </Col>
       </Row>
 
-      <Card title="Payments Ledger" extra={<Space wrap><Input.Search placeholder="Search payment/order/booking id" allowClear onSearch={(value) => loadRows({ ...filters, page: 1, search: value })} style={{ width: 220 }} /><Select placeholder="Status" allowClear style={{ width: 120 }} options={[{ label: "created", value: "created" }, { label: "paid", value: "paid" }, { label: "failed", value: "failed" }, { label: "refunded", value: "refunded" }]} onChange={(value) => loadRows({ ...filters, page: 1, status: value || undefined })} /><Select placeholder="Filter by Category" allowClear value={filters.type} style={{ width: 190 }} options={[{ label: "All Types", value: undefined }, { label: "🛕 Pooja Prepayment", value: "prepayment" }, { label: "🪙 Pandit Credit Top-up", value: "credit_purchase" }, { label: "💸 Payout", value: "pandit_payout" }]} onChange={(value) => loadRows({ ...filters, page: 1, type: value || undefined })} /><Button icon={<DownloadOutlined />} onClick={exportCsv}>Export CSV</Button><Button icon={<ReloadOutlined />} onClick={() => loadRows(filters)}>Refresh</Button></Space>}>
-        <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ current: filters.page, pageSize: filters.limit, total: filters.total, onChange: (nextPage, nextPageSize) => loadRows({ ...filters, page: nextPage, limit: nextPageSize }) }} scroll={{ x: 1500 }} />
+      <Card title="Payments Ledger" extra={<Space wrap><DateRangeFilter value={dateRange} onChange={(dates) => { setDateRange(dates); loadRows({ ...filters, page: 1 }, dates); }} /><Input.Search placeholder="Search payment/order/booking id" allowClear onSearch={(value) => loadRows({ ...filters, page: 1, search: value }, dateRange)} style={{ width: 220 }} /><Select placeholder="Status" allowClear style={{ width: 120 }} options={[{ label: "created", value: "created" }, { label: "paid", value: "paid" }, { label: "failed", value: "failed" }, { label: "refunded", value: "refunded" }]} onChange={(value) => loadRows({ ...filters, page: 1, status: value || undefined }, dateRange)} /><Select placeholder="Filter by Category" allowClear value={filters.type} style={{ width: 190 }} options={[{ label: "All Types", value: undefined }, { label: "🛕 Pooja Prepayment", value: "prepayment" }, { label: "🪙 Pandit Credit Top-up", value: "credit_purchase" }, { label: "💸 Payout", value: "pandit_payout" }]} onChange={(value) => loadRows({ ...filters, page: 1, type: value || undefined }, dateRange)} /><Button icon={<DownloadOutlined />} onClick={exportCsv}>Export CSV</Button><Button icon={<ReloadOutlined />} onClick={() => loadRows(filters, dateRange)}>Refresh</Button></Space>}>
+        <Table rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ current: filters.page, pageSize: filters.limit, total: filters.total, onChange: (nextPage, nextPageSize) => loadRows({ ...filters, page: nextPage, limit: nextPageSize }, dateRange) }} scroll={{ x: 1500 }} />
       </Card>
     </Space>
   );
