@@ -19,7 +19,11 @@ export function setupRecaptcha(buttonId = "recaptcha-container") {
     try {
       window.recaptchaVerifier.clear();
     } catch (_) {}
+    window.recaptchaVerifier = null;
   }
+  const container = document.getElementById(buttonId);
+  if (!container) throw new Error("Firebase verification could not start. Please refresh and try again.");
+  container.replaceChildren();
   window.recaptchaVerifier = new RecaptchaVerifier(auth, buttonId, {
     size: "invisible",
     callback: () => {},
@@ -39,7 +43,14 @@ export async function sendFirebaseOtp(phoneNumber, containerId = "recaptcha-cont
   if (!formatted.startsWith("+")) formatted = "+" + formatted;
 
   const verifier = setupRecaptcha(containerId);
-  const confirmationResult = await signInWithPhoneNumber(auth, formatted, verifier);
-  window.confirmationResult = confirmationResult;
-  return confirmationResult;
+  try {
+    const confirmationResult = await signInWithPhoneNumber(auth, formatted, verifier);
+    window.confirmationResult = confirmationResult;
+    return confirmationResult;
+  } catch (error) {
+    try { verifier.clear(); } catch (_) {}
+    window.recaptchaVerifier = null;
+    window.confirmationResult = null;
+    throw error;
+  }
 }

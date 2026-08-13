@@ -5,7 +5,7 @@ const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
 const { signAuthToken } = require("../utils/jwt");
 const { getReferralCampaign } = require("../services/referralService");
-const { admin } = require("../config/firebase");
+const { admin, initFirebaseAdmin } = require("../config/firebase");
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const OTP_RATE_LIMIT_MAX = Number(process.env.OTP_RATE_LIMIT_MAX || 3);
@@ -52,7 +52,7 @@ const logOtpIssued = ({ actorType, phone, otp }) => {
 };
 
 const DEMO_TEST_PHONES = ["9999999999", "9876543210"];
-const isTestPhone = (phone) => DEMO_TEST_PHONES.includes(normalizePhone(phone));
+const isTestPhone = (phone) => process.env.NODE_ENV !== "production" && DEMO_TEST_PHONES.includes(normalizePhone(phone));
 
 const sendOtpForActor = async (phone, actorType) => {
   const normalizedPhone = normalizePhone(phone);
@@ -110,8 +110,18 @@ const sendOtpForActor = async (phone, actorType) => {
     [normalizedPhone, actorType, otp, OTP_EXPIRY_MINUTES]
   );
 
-  await sendOTP(normalizedPhone, otp);
-  logOtpIssued({ actorType, phone: normalizedPhone, otp });
+  const delivery = await sendOTP(normalizedPhone, otp);
+  if (!delivery?.success) {
+    await query(
+      `UPDATE otp_verifications SET consumed_at = NOW() WHERE phone = $1 AND actor_type = $2 AND otp = $3 AND consumed_at IS NULL`,
+      [normalizedPhone, actorType, otp]
+    );
+    return {
+      status: 502,
+      body: { success: false, message: "OTP could not be delivered. Please try again shortly or contact support." },
+    };
+  }
+  if (process.env.NODE_ENV !== "production") logOtpIssued({ actorType, phone: normalizedPhone, otp });
 
   return {
     status: 200,
@@ -119,8 +129,7 @@ const sendOtpForActor = async (phone, actorType) => {
       success: true,
       message: "OTP sent successfully",
       expiresInMinutes: OTP_EXPIRY_MINUTES,
-      otp: otp,
-      debugOtp: otp,
+      ...(process.env.NODE_ENV !== "production" ? { debugOtp: otp } : {}),
     },
   };
 };
@@ -437,7 +446,11 @@ const verifyFirebaseToken = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Firebase idToken is required" });
     }
 
-    const decoded = await admin.auth().verifyIdToken(idToken);
+    const firebaseApp = initFirebaseAdmin();
+    if (!firebaseApp) {
+      return res.status(503).json({ success: false, message: "Firebase authentication is not configured on the server" });
+    }
+    const decoded = await admin.auth(firebaseApp).verifyIdToken(idToken);
     const rawPhone = decoded.phone_number || "";
     const normalizedPhone = normalizePhone(rawPhone);
 

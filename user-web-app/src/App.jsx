@@ -977,12 +977,14 @@ function AuthModal({ close, done, openLegal }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const referral = refFromUrl();
+  const useBackendOtp = ["localhost", "127.0.0.1"].includes(location.hostname);
   const act = async () => {
     setBusy(true);
     setError("");
     try {
       if (step === "phone") {
-        if (["9999999999", "9876543210"].includes(phone)) {
+        if (!accepted) throw new Error("Please accept the Terms & Conditions and Privacy Policy before continuing.");
+        if (useBackendOtp || ["9999999999", "9876543210"].includes(phone)) {
           await api("/auth/user/send-otp", { method: "POST", body: { phone } });
           setStep("otp");
         } else {
@@ -1013,7 +1015,14 @@ function AuthModal({ close, done, openLegal }) {
             const idToken = await userCred.user.getIdToken();
             const r = await api("/auth/verify-firebase", {
               method: "POST",
-              body: { idToken, actorType: "user" },
+              body: {
+                idToken,
+                actorType: "user",
+                terms_accepted: accepted,
+                privacy_accepted: accepted,
+                terms_version: POLICY_VERSION,
+                privacy_version: POLICY_VERSION,
+              },
             });
             if (r.isNewUser) setStep("register");
             else {
@@ -1101,19 +1110,25 @@ function AuthModal({ close, done, openLegal }) {
           </p>
           <Notice>{error}</Notice>
           {step === "phone" && (
-            <label>
-              Mobile number
-              <div className="phone-field">
-                <b>+91</b>
-                <input
-                  inputMode="numeric"
-                  maxLength="10"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                  placeholder="98765 43210"
-                />
-              </div>
-            </label>
+            <>
+              <label>
+                Mobile number
+                <div className="phone-field">
+                  <b>+91</b>
+                  <input
+                    inputMode="numeric"
+                    maxLength="10"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    placeholder="98765 43210"
+                  />
+                </div>
+              </label>
+              <label className="consent auth-consent">
+                <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+                <span>I am 18+, accept the <button type="button" onClick={() => openLegal("terms")}>Terms & Conditions</button> and <button type="button" onClick={() => openLegal("privacy")}>Privacy Policy</button>.</span>
+              </label>
+            </>
           )}
           {step === "otp" && (
             <label>
@@ -1186,7 +1201,7 @@ function AuthModal({ close, done, openLegal }) {
             className="button primary wide-button"
             disabled={
               busy ||
-              (step === "phone" && phone.length !== 10) ||
+              (step === "phone" && (phone.length !== 10 || !accepted)) ||
               (step === "otp" && otp.length !== 6) ||
               (step === "register" && (!form.name || !accepted))
             }
@@ -1221,7 +1236,7 @@ function LegalModal({ type, close, logout }) {
   const handleDelete = async () => {
     if (!confirm("Permanently delete your Panditoo account? This cannot be undone.")) return;
     try {
-      const token = localStorage.getItem("panditoo_token");
+      const token = localStorage.getItem("panditoo-token");
       await fetch("/api/auth/me", {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }

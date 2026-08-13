@@ -24,6 +24,14 @@ Local development and production use the same-origin `/api` path. Vite, Vercel a
 
 The development site runs at `http://localhost:5174`. The production output is written to `dist/`.
 
+## AWS S3 + CloudFront routing
+
+The production site uses client-side routes, so CloudFront must translate paths such as `/poojas`, `/dashboard` and `/pooja/:id` to `/index.html` before requesting an object from the private S3 origin. Otherwise S3 returns `403 AccessDenied` when a user reloads or opens one of those URLs directly.
+
+Create a CloudFront Function from `deploy/cloudfront-spa-rewrite.js`, publish it, and associate it with the distribution's **default (`*`) cache behavior** on the **Viewer request** event. Keep any `/api/*` origin behavior separate; the function also explicitly leaves API and static-file requests unchanged. After publishing the association, invalidate `/*` on the distribution so cached 403 responses are removed.
+
+Run `npm run test:cloudfront-routing` to verify the rewrite rules locally.
+
 ## Launch checklist
 
 - Deploy the backend and run all database migrations, including migration 021.
