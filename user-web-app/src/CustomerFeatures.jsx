@@ -41,17 +41,15 @@ const niceDate = (value) => {
       if (isNaN(value.getTime())) return "—";
       return value.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     }
-    let str = String(value).trim();
-    if (str.includes("T")) str = str.split("T")[0];
-    else if (str.includes(" ")) str = str.split(" ")[0];
-
+    const str = String(value).trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      const d = new Date(`${str}T00:00:00`);
+      const parts = str.split("-");
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
       if (!isNaN(d.getTime())) {
         return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
       }
     }
-    const parsed = new Date(value);
+    const parsed = new Date(str);
     if (!isNaN(parsed.getTime())) {
       return parsed.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     }

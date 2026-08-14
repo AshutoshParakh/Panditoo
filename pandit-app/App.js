@@ -24,6 +24,7 @@ import RequestDetailScreen from "./src/screens/RequestDetailScreen";
 import CreditWalletScreen from "./src/screens/CreditWalletScreen";
 import AvailabilityScreen from "./src/screens/AvailabilityScreen";
 import LegalDocumentScreen from "./src/screens/LegalDocumentScreen";
+import SplashScreenComponent from "./src/components/SplashScreenComponent";
 
 
 const Stack = createNativeStackNavigator();
@@ -122,11 +123,7 @@ function AppNavigator() {
   const { token, pandit, isLoading } = useAuth();
 
   if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#ea580c" />
-      </View>
-    );
+    return <SplashScreenComponent />;
   }
 
   // Determine initial screen/stack

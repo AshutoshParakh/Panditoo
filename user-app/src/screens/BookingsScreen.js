@@ -5,7 +5,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 const TABS = [
   { key: "upcoming", label: "Upcoming" },
   { key: "awaiting", label: "Awaiting" },

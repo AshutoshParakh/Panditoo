@@ -59,17 +59,15 @@ const niceDate = (value) => {
       if (isNaN(value.getTime())) return "—";
       return value.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     }
-    let str = String(value).trim();
-    if (str.includes("T")) str = str.split("T")[0];
-    else if (str.includes(" ")) str = str.split(" ")[0];
-
+    const str = String(value).trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      const d = new Date(`${str}T00:00:00`);
+      const parts = str.split("-");
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
       if (!isNaN(d.getTime())) {
         return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
       }
     }
-    const parsed = new Date(value);
+    const parsed = new Date(str);
     if (!isNaN(parsed.getTime())) {
       return parsed.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
     }
@@ -983,7 +981,6 @@ function AuthModal({ close, done, openLegal }) {
     setError("");
     try {
       if (step === "phone") {
-<<<<<<< HEAD
         if (!accepted) throw new Error("Please accept the Terms & Conditions and Privacy Policy before continuing.");
         if (useBackendOtp || ["9999999999", "9876543210"].includes(phone)) {
           await api("/auth/user/send-otp", { method: "POST", body: { phone } });
@@ -1044,20 +1041,7 @@ function AuthModal({ close, done, openLegal }) {
               done();
             }
           }
-=======
-        await api("/auth/user/send-otp", { method: "POST", body: { phone } });
-        setStep("otp");
-      } else if (step === "otp") {
-        const r = await api("/auth/user/verify-otp", {
-          method: "POST",
-          body: { phone, otp },
-        });
-        if (r.isNewUser) setStep("register");
-        else {
-          localStorage.setItem("panditoo-token", r.token);
-          localStorage.setItem("panditoo-user-id", r.user.id);
-          done();
->>>>>>> 344fc42a6ccc15f2ef87613e870b576de876b87c
+
         }
       } else {
         if (!accepted)

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 const REASONS = [["change_of_plan", "Change in plan"], ["pandit_asked_to_cancel", "Pandit asked me to cancel"], ["wrong_date_or_location", "Wrong date or location"], ["duplicate_booking", "Booked by mistake / duplicate"], ["other", "Other reason"]];
 
 export default function CancelBookingScreen({ route, navigation }) {

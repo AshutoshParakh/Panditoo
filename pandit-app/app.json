@@ -1,16 +1,40 @@
 {
   "expo": {
-    "name": "Pandit Booking Pandit",
+    "name": "Panditoo - Pandit Partner",
     "slug": "pandit-booking-pandit",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#7c2d12"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.panditoo.panditbookingpandit"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#7c2d12"
+      },
+      "package": "com.panditoo.panditbookingpandit",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
     "extra": {
       "eas": {
         "projectId": "31484c9e-02d1-4ee2-af76-e7f561828333"
       }
-    },
-    "android": {
-      "package": "com.panditoo.panditbookingpandit"
     }
   }
 }

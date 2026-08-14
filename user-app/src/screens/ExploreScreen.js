@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import useLiveRefresh from "../hooks/useLiveRefresh";
 import { colors, shadow } from "../theme/homeTheme";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 const formatDuration = (minutes, hindi) => {
   const value = Number(minutes || 60);

@@ -13,7 +13,7 @@ const TIME_SLOTS = [
   { value: "03:00 PM", label: "03:00", period: "PM" },
   { value: "05:00 PM", label: "05:00", period: "PM" },
 ];
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 const toDateString = (date) => {
   const year = date.getFullYear();

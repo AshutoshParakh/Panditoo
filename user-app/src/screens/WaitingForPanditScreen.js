@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import { colors, shadow } from "../theme/homeTheme";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 export default function WaitingForPanditScreen({ route, navigation }) {
   const { i18n } = useTranslation();

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import useLiveRefresh from "../hooks/useLiveRefresh";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 const Row = ({ icon, title, subtitle, onPress, right, danger }) => title === "Delete Account" ? null : <TouchableOpacity style={s.row} onPress={onPress} disabled={!onPress}><View style={[s.rowIcon, danger && s.dangerIcon]}><Text style={[s.iconText, danger && s.danger]}>{icon}</Text></View><View style={s.rowCopy}><Text style={[s.rowTitle, danger && s.danger]}>{title}</Text>{subtitle ? <Text style={s.rowSubtitle}>{subtitle}</Text> : null}</View>{right || (onPress ? <Text style={s.chevron}>›</Text> : null)}</TouchableOpacity>;
 const Section = ({ title, children }) => <View><Text style={s.sectionTitle}>{title}</Text><View style={s.section}>{children}</View></View>;

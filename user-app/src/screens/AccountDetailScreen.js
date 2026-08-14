@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, FlatList, ScrollView, StyleSheet, Text, TextI
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import useLiveRefresh from "../hooks/useLiveRefresh";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 const content = {
   help: "For booking, payment, cancellation, or pandit support, contact the Panditoo support team through your registered phone number or email.",
   about: "Panditoo connects customers with verified pandits for ceremonies and rituals. Booking and payment information is synchronized with our service in real time.",

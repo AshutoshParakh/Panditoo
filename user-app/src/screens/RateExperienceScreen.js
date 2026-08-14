@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 import { colors, shadow } from "../theme/homeTheme";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 const labels = { 1: "Needs improvement", 2: "Fair", 3: "Good", 4: "Very good", 5: "Excellent" };
 
 export default function RateExperienceScreen({ route, navigation }) {

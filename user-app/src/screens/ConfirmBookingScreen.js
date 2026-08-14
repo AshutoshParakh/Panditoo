@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import RazorpayCheckout from "react-native-razorpay";
 import { colors, shadow } from "../theme/homeTheme";
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:4000/api";
+import { API_URL } from "../config/api";
 
 export default function ConfirmBookingScreen({ route, navigation }) {
   const { i18n } = useTranslation();
