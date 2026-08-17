@@ -10,7 +10,7 @@ export const POLICY_METADATA = {
   privacyEmail: "panditoo.official@gmail.com",
   supportEmail: "panditoo.official@gmail.com",
   phone: "+91 916647714",
-  grievanceOfficer: "Piyush Choudhary / CEO",
+  grievanceOfficer: "Ashutosh / CEO",
 };
 
 export const PRIVACY_POLICY_SECTIONS = [
@@ -99,7 +99,7 @@ export const PRIVACY_POLICY_SECTIONS = [
   {
     id: "grievance",
     heading: "14. GRIEVANCE OFFICER",
-    content: "In accordance with the Information Technology Act, 2000 and rules made thereunder, the details of the Grievance Officer are:\n\nName: Piyush Choudhary / CEO\nDesignation: Nodal & Grievance Officer\nEmail: panditoo.official@gmail.com\nPhone: +91 916647714\nAddress: Panditoo, Registered Office, Indore, Madhya Pradesh, India"
+    content: "In accordance with the Information Technology Act, 2000 and rules made thereunder, the details of the Grievance Officer are:\n\nName: Ashutosh / CEO\nDesignation: Nodal & Grievance Officer\nEmail: panditoo.official@gmail.com\nPhone: +91 916647714\nAddress: Panditoo, Registered Office, Indore, Madhya Pradesh, India"
   },
   {
     id: "changes",
@@ -114,7 +114,7 @@ export const PRIVACY_POLICY_SECTIONS = [
   {
     id: "contact",
     heading: "17. CONTACT US",
-    content: "Panditoo (Operated by: Pandito)\nRegistered Office: Indore, Madhya Pradesh, India\nPrivacy Email: panditoo.official@gmail.com\nCustomer Support: panditoo.official@gmail.com | Phone: +91 916647714\nGrievance Officer: Piyush Choudhary / CEO"
+    content: "Panditoo (Operated by: Pandito)\nRegistered Office: Indore, Madhya Pradesh, India\nPrivacy Email: panditoo.official@gmail.com\nCustomer Support: panditoo.official@gmail.com | Phone: +91 916647714\nGrievance Officer: Ashutosh / CEO"
   }
 ];
 

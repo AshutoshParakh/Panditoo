@@ -101,15 +101,27 @@ const sendOTP = async (phone, otp, options = {}) => {
         credentials,
       });
 
+      const smsAttributes = {
+        "AWS.SNS.SMS.SMSType": {
+          DataType: "String",
+          StringValue: "Transactional",
+        },
+      };
+
+      // Only include SenderID if explicitly set AND DLT registered
+      // Unregistered SenderIDs cause TRAI scrubbing delays (2-5 min) in India
+      const senderId = sanitizeEnvValue(process.env.AWS_SNS_SENDER_ID);
+      if (senderId) {
+        smsAttributes["AWS.SNS.SMS.SenderID"] = {
+          DataType: "String",
+          StringValue: senderId,
+        };
+      }
+
       const command = new PublishCommand({
         Message: message,
         PhoneNumber: formattedPhone,
-        MessageAttributes: {
-          "AWS.SNS.SMS.SMSType": {
-            DataType: "String",
-            StringValue: "Transactional",
-          },
-        },
+        MessageAttributes: smsAttributes,
       });
 
       const response = await snsClient.send(command);
