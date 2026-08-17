@@ -6,7 +6,7 @@ export const LEGAL_CONTACT = {
   address: "Indore, Madhya Pradesh, India",
   supportEmail: "panditoo.official@gmail.com",
   privacyEmail: "panditoo.official@gmail.com",
-  grievanceOfficer: "Ashutosh Parakh / CEO",
+  grievanceOfficer: "Ashutosh & Piyush | Co-Founders & CEOs",
   grievanceEmail: "panditoo.official@gmail.com",
   phone: "+91 916647714",
   jurisdiction: "courts and competent tribunals located at Indore, Madhya Pradesh",
@@ -26,10 +26,10 @@ export const customerPrivacySections = [
   ["11. CHILDREN'S DATA", "The Platform is not intended for independent use by children where applicable law requires parental or lawful guardian consent."],
   ["12. YOUR PRIVACY RIGHTS", "Subject to applicable law, you may have rights to request access to your personal information, request correction of inaccurate data, request deletion where legally applicable, withdraw consent, or raise a privacy grievance by emailing panditoo.official@gmail.com."],
   ["13. PRIVACY REQUESTS", "For privacy-related requests:\nPrivacy Email: panditoo.official@gmail.com\nSupport Email: panditoo.official@gmail.com"],
-  ["14. GRIEVANCE OFFICER", "Name: Ashutosh / CEO\nDesignation: Grievance Officer\nEmail: panditoo.official@gmail.com\nPhone: +91 916647714\nAddress: Panditoo, Indore, Madhya Pradesh"],
+  ["14. GRIEVANCE OFFICER", "Name: Ashutosh & Piyush | Co-Founders & CEOs\nDesignation: Grievance Officer\nEmail: panditoo.official@gmail.com\nPhone: +91 916647714\nAddress: Panditoo, Indore, Madhya Pradesh"],
   ["15. CHANGES TO THIS POLICY", "Panditoo may update this Privacy Policy from time to time. The updated version will be published on the Platform with the revised 'Last Updated' date."],
   ["16. GOVERNING LAW", "This Privacy Policy shall be governed by the laws of India. Nothing in this policy limits mandatory statutory rights available under applicable Indian law."],
-  ["17. CONTACT US", "Panditoo (Operated by: Pandito)\nRegistered Office: Indore, Madhya Pradesh\nPrivacy Email: panditoo.official@gmail.com\nCustomer Support: panditoo.official@gmail.com | Phone: +91 916647714\nGrievance Officer: Ashutosh / CEO"]
+  ["17. CONTACT US", "Panditoo (Operated by: Pandito)\nRegistered Office: Indore, Madhya Pradesh\nPrivacy Email: panditoo.official@gmail.com\nCustomer Support: panditoo.official@gmail.com | Phone: +91 916647714\nGrievance Officer: Ashutosh & Piyush | Co-Founders & CEOs"]
 ];
 
 export const commonTerms = [
@@ -46,7 +46,7 @@ export const commonTerms = [
   ["11. Suspension and Termination", "Panditoo may suspend or terminate accounts in cases of terms violation, payment fraud, safety concerns, or legal requirements."],
   ["12. Disclaimers and Liability", "Panditoo's liability is limited to the maximum extent permitted under applicable law. Statutory consumer rights under the Consumer Protection Act, 2019 are preserved."],
   ["13. Governing Law and Jurisdiction", `These Terms are governed by the laws of India. Any disputes or legal proceedings shall be subject to the exclusive jurisdiction of ${LEGAL_CONTACT.jurisdiction}.`],
-  ["14. Changes and Contact", `Material changes will be notified on the Platform. Support Email: ${LEGAL_CONTACT.supportEmail} | Phone: ${LEGAL_CONTACT.phone} | Grievance Officer: Ashutosh / CEO`]
+  ["14. Changes and Contact", `Material changes will be notified on the Platform. Support Email: ${LEGAL_CONTACT.supportEmail} | Phone: ${LEGAL_CONTACT.phone} | Grievance Officer: Ashutosh & Piyush | Co-Founders & CEOs`]
 ];
 
 export const LEGAL_DOCUMENTS = {
