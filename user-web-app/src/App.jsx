@@ -7,6 +7,7 @@ import {
   CustomerBookings,
   CustomerProfile,
 } from "./CustomerFeatures";
+import { PrivacyPolicyPage, TermsConditionsPage } from "./LegalPages";
 
 const POLICY_VERSION = "2026-08-09";
 const icons = { home: "⌂", explore: "✦", bookings: "▣", profile: "◉" };
@@ -2063,6 +2064,8 @@ export default function App() {
   }, [path, pooja?.id]);
 
   if (loading && !data.poojas.length && !serviceError) return <Loader full />;
+  const openLegal = (type) => navigate(type === "privacy" ? "/privacy" : "/terms");
+
   const shell = {
     authed,
     profile: data.profile,
@@ -2080,7 +2083,7 @@ export default function App() {
         poojas={data.poojas}
         offers={data.offers}
         onBook={viewPooja}
-        openLegal={setLegalType}
+        openLegal={openLegal}
         {...shell}
       />
     );
@@ -2093,6 +2096,18 @@ export default function App() {
   else if (path === "/pandits") page = <PanditDiscovery {...shell} />;
   else if (path === "/how-it-works") page = <HowItWorks {...shell} />;
   else if (path === "/about") page = <About {...shell} />;
+  else if (path === "/privacy")
+    page = (
+      <PublicPage {...shell}>
+        <PrivacyPolicyPage navigate={navigate} authed={authed} logout={logout} />
+      </PublicPage>
+    );
+  else if (path === "/terms")
+    page = (
+      <PublicPage {...shell}>
+        <TermsConditionsPage navigate={navigate} />
+      </PublicPage>
+    );
   else if (path.startsWith("/book/") && authed && pooja)
     page = (
       <CustomerBookingFlow
@@ -2134,7 +2149,7 @@ export default function App() {
               bookings={data.bookings}
               reload={load}
               logout={logout}
-              openLegal={setLegalType}
+              openLegal={openLegal}
             />
           )}
         </main>
@@ -2169,7 +2184,7 @@ export default function App() {
         poojas={data.poojas}
         offers={data.offers}
         onBook={viewPooja}
-        openLegal={setLegalType}
+        openLegal={openLegal}
         {...shell}
       />
     );
@@ -2180,7 +2195,7 @@ export default function App() {
         <AuthModal
           close={() => navigate("/")}
           done={authDone}
-          openLegal={setLegalType}
+          openLegal={openLegal}
         />
       )}{" "}
       {authOpen && (
@@ -2190,12 +2205,9 @@ export default function App() {
             setPending(null);
           }}
           done={authDone}
-          openLegal={setLegalType}
+          openLegal={openLegal}
         />
       )}{" "}
-      {legalType && (
-        <LegalModal type={legalType} logout={logout} close={() => setLegalType(null)} />
-      )}
     </>
   );
 }
