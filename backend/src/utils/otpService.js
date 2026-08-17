@@ -88,13 +88,17 @@ const sendOTP = async (phone, otp, options = {}) => {
 
     try {
       const { SNSClient, PublishCommand } = require("@aws-sdk/client-sns");
+      const credentials = {
+        accessKeyId,
+        secretAccessKey,
+      };
+      if (sessionToken && typeof sessionToken === "string" && sessionToken.trim() && sessionToken !== "undefined") {
+        credentials.sessionToken = sessionToken.trim();
+      }
+
       const snsClient = new SNSClient({
         region,
-        credentials: {
-          accessKeyId,
-          secretAccessKey,
-          ...(sessionToken ? { sessionToken } : {}),
-        },
+        credentials,
       });
 
       const command = new PublishCommand({

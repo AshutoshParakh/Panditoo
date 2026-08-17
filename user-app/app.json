@@ -1,12 +1,17 @@
 {
   "expo": {
-    "name": "Pandit Booking User",
+    "name": "Panditoo - Devotee",
     "slug": "pandit-booking-user",
     "scheme": "panditoo",
     "version": "1.0.0",
     "orientation": "portrait",
     "android": {
-      "package": "com.anonymous.panditbookinguser"
+      "package": "com.panditoo.panditbookinguser"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ec0c74e2-886c-4072-a75b-b1114bf7d6a5"
+      }
     }
   }
 }
