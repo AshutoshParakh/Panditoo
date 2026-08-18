@@ -54,7 +54,7 @@ const logOtpIssued = ({ actorType, phone, otp }) => {
 };
 
 const DEMO_TEST_PHONES = ["9999999999", "9876543210"];
-const isTestPhone = (phone) => process.env.NODE_ENV !== "production" && DEMO_TEST_PHONES.includes(normalizePhone(phone));
+const isTestPhone = (phone) => DEMO_TEST_PHONES.includes(normalizePhone(phone));
 
 const sendOtpForActor = async (phone, actorType) => {
   const normalizedPhone = normalizePhone(phone);
@@ -124,15 +124,20 @@ const sendOtpForActor = async (phone, actorType) => {
   }
   logOtpIssued({ actorType, phone: normalizedPhone, otp });
 
+  const responseBody = {
+    success: true,
+    message: "OTP sent successfully",
+    expiresInMinutes: OTP_EXPIRY_MINUTES,
+  };
+
+  if (allowDebugOtp || isTestPhone(normalizedPhone)) {
+    responseBody.otp = otp;
+    responseBody.debugOtp = otp;
+  }
+
   return {
     status: 200,
-    body: {
-      success: true,
-      message: "OTP sent successfully",
-      expiresInMinutes: OTP_EXPIRY_MINUTES,
-      otp,
-      debugOtp: otp,
-    },
+    body: responseBody,
   };
 };
 
