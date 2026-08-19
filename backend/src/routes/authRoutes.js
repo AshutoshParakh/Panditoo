@@ -11,7 +11,6 @@ const {
   updateCurrentUser,
   deleteCurrentUser,
   adminLogin,
-  verifyFirebaseToken,
 } = require("../controllers/authController");
 const { verifyAuthToken } = require("../utils/jwt");
 
@@ -39,7 +38,6 @@ const router = express.Router();
 
 router.post("/user/send-otp", sendUserOtp);
 router.post("/user/verify-otp", verifyUserOtp);
-router.post("/verify-firebase", verifyFirebaseToken);
 router.post("/user/register", registerUser);
 router.post("/pandit/send-otp", sendPanditOtp);
 router.post("/pandit/verify-otp", verifyPanditOtp);

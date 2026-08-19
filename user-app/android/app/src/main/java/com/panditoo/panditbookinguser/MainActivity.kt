@@ -1,4 +1,4 @@
-package com.anonymous.panditbookinguser
+package com.panditoo.panditbookinguser
 
 import android.os.Build
 import android.os.Bundle

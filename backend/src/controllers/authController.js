@@ -3,9 +3,9 @@ const net = require("net");
 
 const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
+const { getReviewCredential, isReviewPhone, isReviewOtp } = require("../utils/reviewCredentials");
 const { signAuthToken } = require("../utils/jwt");
 const { getReferralCampaign } = require("../services/referralService");
-const { admin, initFirebaseAdmin } = require("../config/firebase");
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
 const OTP_RATE_LIMIT_MAX = Number(process.env.OTP_RATE_LIMIT_MAX || 3);
@@ -53,9 +53,6 @@ const logOtpIssued = ({ actorType, phone, otp }) => {
   console.log("========================================================\n");
 };
 
-const DEMO_TEST_PHONES = ["9999999999", "9876543210"];
-const isTestPhone = (phone) => DEMO_TEST_PHONES.includes(normalizePhone(phone));
-
 const sendOtpForActor = async (phone, actorType) => {
   const normalizedPhone = normalizePhone(phone);
 
@@ -63,17 +60,16 @@ const sendOtpForActor = async (phone, actorType) => {
     return { status: 400, body: { success: false, message: "Valid phone number is required" } };
   }
 
-  if (isTestPhone(normalizedPhone)) {
-    const fixedOtp = "123456";
-    logOtpIssued({ actorType, phone: normalizedPhone, otp: fixedOtp });
+  if (isReviewPhone(normalizedPhone, actorType)) {
+    const fixedOtp = getReviewCredential(actorType).otp;
+    if (allowDebugOtp) logOtpIssued({ actorType, phone: normalizedPhone, otp: fixedOtp });
     return {
       status: 200,
       body: {
         success: true,
-        message: "OTP sent successfully",
+        message: "Review OTP ready",
         expiresInMinutes: OTP_EXPIRY_MINUTES,
-        otp: fixedOtp,
-        debugOtp: fixedOtp,
+        ...(allowDebugOtp ? { otp: fixedOtp, debugOtp: fixedOtp } : {}),
       },
     };
   }
@@ -124,20 +120,14 @@ const sendOtpForActor = async (phone, actorType) => {
   }
   logOtpIssued({ actorType, phone: normalizedPhone, otp });
 
-  const responseBody = {
-    success: true,
-    message: "OTP sent successfully",
-    expiresInMinutes: OTP_EXPIRY_MINUTES,
-  };
-
-  if (allowDebugOtp || isTestPhone(normalizedPhone)) {
-    responseBody.otp = otp;
-    responseBody.debugOtp = otp;
-  }
-
   return {
     status: 200,
-    body: responseBody,
+    body: {
+      success: true,
+      message: "OTP sent successfully",
+      expiresInMinutes: OTP_EXPIRY_MINUTES,
+      ...(allowDebugOtp ? { otp, debugOtp: otp } : {}),
+    },
   };
 };
 
@@ -150,9 +140,9 @@ const verifyOtpForActor = async (phone, otp, actorType, req = null, options = {}
       return { status: 400, body: { success: false, message: "Phone and 6-digit OTP are required" } };
     }
 
-    const isMasterOtp =
-      (normalizedOtp === "123456" || normalizedOtp === "111111" || normalizedOtp === "999999" || normalizedOtp === "369850") &&
-      (isDevMode || isTestPhone(normalizedPhone));
+    const developmentMasterOtps = ["123456", "111111", "999999", "369850"];
+    const isMasterOtp = isReviewOtp(normalizedPhone, normalizedOtp, actorType) ||
+      (isDevMode && developmentMasterOtps.includes(normalizedOtp));
 
     let otpId = null;
     if (!isMasterOtp) {
@@ -437,45 +427,6 @@ const verifyPanditOtp = async (req, res, next) => {
   }
 };
 
-const verifyFirebaseToken = async (req, res, next) => {
-  try {
-    const { idToken, actorType = "user" } = req.body;
-    if (actorType === "user" && !validatePolicyAcceptance(req.body)) {
-      return res.status(400).json({
-        success: false,
-        message: "You must accept the updated Terms & Conditions and Privacy Policy to continue.",
-        code: "POLICY_ACCEPTANCE_REQUIRED",
-      });
-    }
-
-    if (!idToken) {
-      return res.status(400).json({ success: false, message: "Firebase idToken is required" });
-    }
-
-    const firebaseApp = initFirebaseAdmin();
-    if (!firebaseApp) {
-      return res.status(503).json({ success: false, message: "Firebase authentication is not configured on the server" });
-    }
-    const decoded = await admin.auth(firebaseApp).verifyIdToken(idToken);
-    const rawPhone = decoded.phone_number || "";
-    const normalizedPhone = normalizePhone(rawPhone);
-
-    if (!normalizedPhone || normalizedPhone.length < 10) {
-      return res.status(400).json({ success: false, message: "Phone number not found in Firebase token" });
-    }
-
-    const result = await verifyOtpForActor(normalizedPhone, null, actorType, req, { skipOtpVerification: true });
-
-    if (actorType === "user" && result.body.success && result.body.user) {
-      await recordPolicyAcceptance(req, "user", result.body.user.id);
-    }
-
-    return res.status(result.status).json(result.body);
-  } catch (error) {
-    console.error("[AUTH:FIREBASE] Token verification error:", error.message);
-    return res.status(401).json({ success: false, message: "Invalid or expired Firebase token" });
-  }
-};
 const adminLogin = async (req, res, next) => {
   try {
     const email = String(req.body.email || "").trim().toLowerCase();
@@ -600,5 +551,4 @@ module.exports = {
   updateCurrentUser,
   deleteCurrentUser,
   adminLogin,
-  verifyFirebaseToken,
 };

@@ -4,9 +4,12 @@ const sanitizeEnvValue = (value) => {
 };
 
 const sendOTP = async (phone, otp, options = {}) => {
-  const provider = process.env.OTP_PROVIDER;
+  const provider = process.env.OTP_PROVIDER || "aws";
   const purpose = options.purpose || "verification";
-  const message = options.message || `Your OTP for Pandit Booking is ${otp}. It is valid for 5 minutes.`;
+  const configuredTemplate = sanitizeEnvValue(process.env.OTP_MESSAGE_TEMPLATE);
+  const message = options.message || (configuredTemplate
+    ? configuredTemplate.replace(/\{\{\s*OTP\s*\}\}/gi, otp)
+    : `Your OTP for Pandit Booking is ${otp}. It is valid for 5 minutes.`);
 
   // Normalize and format to E.164 format (e.g. +919999999999) for AWS SNS and Twilio
   let formattedPhone = String(phone || "").trim();
@@ -126,6 +129,25 @@ const sendOTP = async (phone, otp, options = {}) => {
         };
       }
       if (templateId) {
+        smsAttributes["AWS.MM.SMS.TemplateId"] = {
+          DataType: "String",
+          StringValue: templateId,
+        };
+      }
+
+      // Indian local-route SMS requires the TRAI/DLT entity and template IDs.
+      // The message content must exactly match the registered DLT template.
+      const entityId = sanitizeEnvValue(process.env.AWS_SNS_ENTITY_ID);
+      const templateId = sanitizeEnvValue(process.env.AWS_SNS_TEMPLATE_ID);
+      if ((entityId && !templateId) || (!entityId && templateId)) {
+        console.error("[OTP:aws] AWS_SNS_ENTITY_ID and AWS_SNS_TEMPLATE_ID must be configured together");
+        return { success: false, error: "Incomplete AWS India DLT configuration" };
+      }
+      if (entityId && templateId) {
+        smsAttributes["AWS.MM.SMS.EntityId"] = {
+          DataType: "String",
+          StringValue: entityId,
+        };
         smsAttributes["AWS.MM.SMS.TemplateId"] = {
           DataType: "String",
           StringValue: templateId,
