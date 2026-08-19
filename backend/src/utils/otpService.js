@@ -108,13 +108,27 @@ const sendOTP = async (phone, otp, options = {}) => {
         },
       };
 
-      // Only include SenderID if explicitly set AND DLT registered
-      // Unregistered SenderIDs cause TRAI scrubbing delays (2-5 min) in India
+      // For India DLT delivery, these values should match the registered sender/template exactly.
       const senderId = sanitizeEnvValue(process.env.AWS_SNS_SENDER_ID);
+      const entityId = sanitizeEnvValue(process.env.AWS_SNS_ENTITY_ID);
+      const templateId = sanitizeEnvValue(process.env.AWS_SNS_TEMPLATE_ID);
+
       if (senderId) {
         smsAttributes["AWS.SNS.SMS.SenderID"] = {
           DataType: "String",
           StringValue: senderId,
+        };
+      }
+      if (entityId) {
+        smsAttributes["AWS.MM.SMS.EntityId"] = {
+          DataType: "String",
+          StringValue: entityId,
+        };
+      }
+      if (templateId) {
+        smsAttributes["AWS.MM.SMS.TemplateId"] = {
+          DataType: "String",
+          StringValue: templateId,
         };
       }
 
