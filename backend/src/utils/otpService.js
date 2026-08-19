@@ -122,23 +122,6 @@ const sendOTP = async (phone, otp, options = {}) => {
           StringValue: senderId,
         };
       }
-      if (entityId) {
-        smsAttributes["AWS.MM.SMS.EntityId"] = {
-          DataType: "String",
-          StringValue: entityId,
-        };
-      }
-      if (templateId) {
-        smsAttributes["AWS.MM.SMS.TemplateId"] = {
-          DataType: "String",
-          StringValue: templateId,
-        };
-      }
-
-      // Indian local-route SMS requires the TRAI/DLT entity and template IDs.
-      // The message content must exactly match the registered DLT template.
-      const entityId = sanitizeEnvValue(process.env.AWS_SNS_ENTITY_ID);
-      const templateId = sanitizeEnvValue(process.env.AWS_SNS_TEMPLATE_ID);
       if ((entityId && !templateId) || (!entityId && templateId)) {
         console.error("[OTP:aws] AWS_SNS_ENTITY_ID and AWS_SNS_TEMPLATE_ID must be configured together");
         return { success: false, error: "Incomplete AWS India DLT configuration" };
