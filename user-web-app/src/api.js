@@ -12,10 +12,13 @@ export async function api(path, { method = "GET", body, auth = false } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.success === false) throw new Error(payload.message || "Something went wrong. Please try again.");
+    if (!response.ok || payload.success === false) {
+      throw new Error(payload.message || `Request failed (${response.status}). Please try again.`);
+    }
     return payload;
   } catch (error) {
     if (error.name === "AbortError") throw new Error("The request timed out. Please check your connection.");
+    if (error.message === "Failed to fetch") throw new Error("Could not connect to backend server. Please check if the server is running.");
     throw error;
   } finally { clearTimeout(timer); }
 }

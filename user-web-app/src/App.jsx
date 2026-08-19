@@ -1959,11 +1959,14 @@ export default function App() {
       });
       setServiceError("");
     } catch (e) {
-      setServiceError(e.message);
       if (/token|unauthorized|expired/i.test(e.message)) {
         localStorage.removeItem("panditoo-token");
         localStorage.removeItem("panditoo-user-id");
         setAuthed(false);
+        setServiceError("");
+        loadPoojas();
+      } else {
+        setServiceError(e.message);
       }
     } finally {
       setLoading(false);

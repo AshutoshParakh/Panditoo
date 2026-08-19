@@ -6,9 +6,12 @@
     "backend",
     "user-app",
     "pandit-app",
-    "admin-dashboard"
+    "admin-dashboard",
+    "user-web-app"
   ],
   "scripts": {
+    "dev": "npm --prefix user-web-app run dev",
+    "dev:web": "npm --prefix user-web-app run dev",
     "build": "npm --prefix user-web-app run build",
     "build:web": "npm --prefix user-web-app run build",
     "dev:backend": "npm --workspace backend run dev",
