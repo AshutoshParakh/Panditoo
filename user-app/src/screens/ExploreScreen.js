@@ -77,7 +77,7 @@ export default function ExploreScreen({ navigation, route }) {
           {translatedName ? <Text numberOfLines={1} style={s.translatedName}>{translatedName}</Text> : null}
           <Text numberOfLines={2} style={s.description}>{description || (hindi ? "पारंपरिक विधि से संपन्न पूजा" : "A traditional ceremony performed with complete rituals.")}</Text>
           <View style={s.metaRow}>
-            <Text style={s.meta}>{formatDuration(item.duration_minutes, hindi)}</Text>
+            <Text style={s.meta}>{Number(item.service_days || 1) > 1 ? (hindi ? `${item.service_days} दिन का बंडल` : `${item.service_days}-day bundle`) : formatDuration(item.duration_minutes, hindi)}</Text>
             <View style={s.dot} />
             <Text style={s.price}>{hindi ? "आरंभ" : "From"}  ₹{Number(item.base_price || 0).toLocaleString("en-IN")}</Text>
           </View>

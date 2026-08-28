@@ -56,7 +56,7 @@ export default function PoojaDetailsScreen({ route, navigation }) {
         </View>
 
         <View style={s.summary}>
-          <View style={s.summaryItem}><Text style={s.summaryLabel}>{hindi ? "अवधि" : "DURATION"}</Text><Text style={s.summaryValue}>{formatDuration(pooja.duration_minutes, hindi)}</Text></View>
+          <View style={s.summaryItem}><Text style={s.summaryLabel}>{hindi ? "अवधि" : "DURATION"}</Text><Text style={s.summaryValue}>{Number(pooja.service_days || 1) > 1 ? (hindi ? `${pooja.service_days} दिन • दैनिक पूजा` : `${pooja.service_days} days • daily visits`) : formatDuration(pooja.duration_minutes, hindi)}</Text></View>
           <View style={s.divider} />
           <View style={s.summaryItem}><Text style={s.summaryLabel}>{hindi ? "सेवा शुल्क" : "STARTING FROM"}</Text><Text style={s.summaryPrice}>₹{Number(pooja.base_price || 0).toLocaleString("en-IN")}</Text></View>
         </View>

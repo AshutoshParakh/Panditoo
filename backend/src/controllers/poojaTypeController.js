@@ -1,4 +1,4 @@
-const { query } = require("../config/db");
+const { pool, query } = require("../config/db");
 
 const parsePagination = (req) => {
   const page = Math.max(1, Number.parseInt(req.query.page || "1", 10));
@@ -26,12 +26,14 @@ const listAdminPoojaTypes = async (req, res, next) => {
             description_hi,
             base_price,
             credit_cost,
+            service_days,
+            display_order,
             duration_minutes,
             samagri_list,
             is_active,
             created_at
           FROM pooja_types
-          ORDER BY created_at DESC
+          ORDER BY display_order ASC, created_at DESC
           LIMIT $1 OFFSET $2
         `,
         [limit, offset]
@@ -64,6 +66,7 @@ const createPoojaType = async (req, res, next) => {
       description_hi = null,
       base_price,
       credit_cost = 10,
+      service_days = 1,
       duration_minutes = 60,
       samagri_list,
       is_active = true,
@@ -78,11 +81,14 @@ const createPoojaType = async (req, res, next) => {
           description_hi,
           base_price,
           credit_cost,
+          service_days,
           duration_minutes,
           samagri_list,
-          is_active
+          is_active,
+          display_order
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10,
+          (SELECT COALESCE(MAX(display_order), 0) + 1 FROM pooja_types))
         RETURNING
           id,
           name_en,
@@ -91,6 +97,8 @@ const createPoojaType = async (req, res, next) => {
           description_hi,
           base_price,
           credit_cost,
+          service_days,
+          display_order,
           duration_minutes,
           samagri_list,
           is_active,
@@ -103,6 +111,7 @@ const createPoojaType = async (req, res, next) => {
         description_hi,
         base_price,
         credit_cost,
+        service_days,
         duration_minutes,
         JSON.stringify(samagri_list),
         is_active,
@@ -132,6 +141,7 @@ const updatePoojaType = async (req, res, next) => {
       description_hi: "description_hi",
       base_price: "base_price",
       credit_cost: "credit_cost",
+      service_days: "service_days",
       duration_minutes: "duration_minutes",
       is_active: "is_active",
     };
@@ -169,6 +179,8 @@ const updatePoojaType = async (req, res, next) => {
           description_hi,
           base_price,
           credit_cost,
+          service_days,
+          display_order,
           duration_minutes,
           samagri_list,
           is_active,
@@ -221,6 +233,56 @@ const deletePoojaType = async (req, res, next) => {
   }
 };
 
+const reorderPoojaType = async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    const direction = String(req.body?.direction || "").toLowerCase();
+    if (!['up', 'down'].includes(direction)) {
+      return res.status(400).json({ success: false, message: "Direction must be up or down" });
+    }
+
+    await client.query("BEGIN");
+    const ordered = await client.query(
+      `SELECT id, display_order
+       FROM pooja_types
+       ORDER BY display_order ASC, created_at DESC
+       FOR UPDATE`
+    );
+    const currentIndex = ordered.rows.findIndex((item) => item.id === req.params.id);
+    if (currentIndex === -1) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, message: "Pooja type not found" });
+    }
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= ordered.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: `Pooja type is already at the ${direction === 'up' ? 'top' : 'bottom'}` });
+    }
+
+    const current = ordered.rows[currentIndex];
+    const target = ordered.rows[targetIndex];
+    await client.query(
+      `UPDATE pooja_types
+       SET display_order = CASE
+         WHEN id = $1 THEN $4
+         WHEN id = $2 THEN $3
+         ELSE display_order
+       END
+       WHERE id IN ($1, $2)`,
+      [current.id, target.id, current.display_order, target.display_order]
+    );
+    await client.query("COMMIT");
+
+    return res.status(200).json({ success: true, message: `Pooja moved ${direction}` });
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch (_) {}
+    return next(error);
+  } finally {
+    client.release();
+  }
+};
+
 const listPublicPoojaTypes = async (req, res, next) => {
   try {
     const lang = normalizeLang(req.query.lang);
@@ -235,13 +297,15 @@ const listPublicPoojaTypes = async (req, res, next) => {
           ${descriptionColumn} AS description,
           base_price,
           credit_cost,
+          service_days,
+          display_order,
           duration_minutes,
           samagri_list,
           is_active,
           created_at
         FROM pooja_types
         WHERE is_active = TRUE
-        ORDER BY created_at DESC
+        ORDER BY display_order ASC, created_at DESC
       `,
       []
     );
@@ -260,6 +324,7 @@ module.exports = {
   listAdminPoojaTypes,
   createPoojaType,
   updatePoojaType,
+  reorderPoojaType,
   deletePoojaType,
   listPublicPoojaTypes,
 };

@@ -22,8 +22,8 @@ describe("cronService background jobs", () => {
     // 2. Create pandits (within 15km and 25km radius)
     const panditOneResult = await query(
       `
-        INSERT INTO pandits (name, phone, latitude, longitude, service_radius_km, is_active)
-        VALUES ('Near Pandit 1', '9990004001', 28.6139, 77.2090, 15, TRUE)
+        INSERT INTO pandits (name, phone, latitude, longitude, service_radius_km, is_active, is_verified)
+        VALUES ('Near Pandit 1', '9990004001', 28.6139, 77.2090, 15, TRUE, TRUE)
         RETURNING id
       `
     );
@@ -31,8 +31,8 @@ describe("cronService background jobs", () => {
 
     const panditTwoResult = await query(
       `
-        INSERT INTO pandits (name, phone, latitude, longitude, service_radius_km, is_active)
-        VALUES ('Near Pandit 2', '9990004002', 28.7000, 77.2500, 15, TRUE)
+        INSERT INTO pandits (name, phone, latitude, longitude, service_radius_km, is_active, is_verified)
+        VALUES ('Near Pandit 2', '9990004002', 28.7000, 77.2500, 15, TRUE, TRUE)
         RETURNING id
       `
     );
@@ -40,8 +40,8 @@ describe("cronService background jobs", () => {
 
     const panditThreeResult = await query(
       `
-        INSERT INTO pandits (name, phone, latitude, longitude, service_radius_km, is_active)
-        VALUES ('Mid Pandit 3', '9990004003', 28.8000, 77.3000, 30, TRUE)
+        INSERT INTO pandits (name, phone, latitude, longitude, service_radius_km, is_active, is_verified)
+        VALUES ('Mid Pandit 3', '9990004003', 28.8000, 77.3000, 30, TRUE, TRUE)
         RETURNING id
       `
     );

@@ -4,6 +4,7 @@ const {
   listAdminPoojaTypes,
   createPoojaType,
   updatePoojaType,
+  reorderPoojaType,
   deletePoojaType,
 } = require("../controllers/poojaTypeController");
 const {
@@ -73,6 +74,7 @@ router.get("/payments", listAdminPayments);
 router.get("/pooja-types", listAdminPoojaTypes);
 router.post("/pooja-types", validate(createPoojaTypeSchema), createPoojaType);
 router.put("/pooja-types/:id", validate(updatePoojaTypeSchema), updatePoojaType);
+router.patch("/pooja-types/:id/reorder", reorderPoojaType);
 router.delete("/pooja-types/:id", deletePoojaType);
 
 router.get("/pandits", listAllPandits);
@@ -82,5 +84,4 @@ router.patch("/pandits/:id/verify", verifyPandit);
 router.patch("/pandits/:id/deactivate", deactivatePandit);
 
 module.exports = router;
-
 

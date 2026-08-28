@@ -13,6 +13,16 @@ const TABS = ["current", "search", "saved"];
 
 const formatAddress = (place) => [place.name !== place.street ? place.name : null, place.street, place.district || place.subregion, place.city, place.region, place.postalCode].filter(Boolean).join(", ");
 
+class MapErrorBoundary extends React.Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(err) { console.warn("MapView error caught:", err); }
+  render() {
+    if (this.state.hasError) return this.props.fallback || null;
+    return this.props.children;
+  }
+}
+
 export default function SelectLocationScreen({ route, navigation }) {
   const { i18n } = useTranslation();
   const hindi = i18n.language === "hi";
@@ -31,15 +41,23 @@ export default function SelectLocationScreen({ route, navigation }) {
   const [resolving, setResolving] = useState(false);
   const [mapMoving, setMapMoving] = useState(false);
   const [error, setError] = useState("");
+  const [hasPermission, setHasPermission] = useState(false);
 
-  useEffect(() => { AsyncStorage.getItem(SAVED_ADDRESSES_KEY).then((value) => { if (value) setSavedAddresses(JSON.parse(value)); }).catch(() => {}); }, []);
+  useEffect(() => {
+    AsyncStorage.getItem(SAVED_ADDRESSES_KEY).then((value) => { if (value) setSavedAddresses(JSON.parse(value)); }).catch(() => {});
+    Location.getForegroundPermissionsAsync().then((res) => { if (res.status === "granted") setHasPermission(true); }).catch(() => {});
+  }, []);
 
   const moveMap = (coords, delta = 0.008) => {
+    if (!coords || typeof coords.latitude !== "number" || typeof coords.longitude !== "number") return;
     mapTouched.current = false;
-    mapRef.current?.animateToRegion({ ...coords, latitudeDelta: delta, longitudeDelta: delta }, 550);
+    try {
+      mapRef.current?.animateToRegion({ latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: delta, longitudeDelta: delta }, 550);
+    } catch (_) {}
   };
 
   const resolveAddress = async (coords, fallback = "") => {
+    if (!coords || typeof coords.latitude !== "number" || typeof coords.longitude !== "number") return;
     setResolving(true); setError("");
     try {
       const [place] = await Location.reverseGeocodeAsync(coords);
@@ -51,6 +69,7 @@ export default function SelectLocationScreen({ route, navigation }) {
   };
 
   const selectCoordinates = async (coords, fallback = "", shouldMove = true) => {
+    if (!coords || typeof coords.latitude !== "number" || typeof coords.longitude !== "number") return;
     const clean = { latitude: coords.latitude, longitude: coords.longitude };
     setCoordinates(clean);
     if (shouldMove) moveMap(clean);
@@ -62,8 +81,11 @@ export default function SelectLocationScreen({ route, navigation }) {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") throw new Error(hindi ? "लोकेशन की अनुमति आवश्यक है।" : "Location permission is required.");
+      setHasPermission(true);
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      await selectCoordinates(position.coords);
+      if (position?.coords) {
+        await selectCoordinates(position.coords);
+      }
     } catch (requestError) { setError(requestError.message || (hindi ? "वर्तमान स्थान नहीं मिल सका।" : "Unable to find your current location.")); }
     finally { setLocating(false); }
   };
@@ -76,6 +98,7 @@ export default function SelectLocationScreen({ route, navigation }) {
       if (Platform.OS === "android") {
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") throw new Error(hindi ? "स्थान खोजने के लिए लोकेशन अनुमति आवश्यक है।" : "Location permission is required to search on Android.");
+        setHasPermission(true);
       }
       const results = await Location.geocodeAsync(query);
       if (!results.length) throw new Error(hindi ? "कोई स्थान नहीं मिला।" : "No matching location found.");
@@ -95,7 +118,13 @@ export default function SelectLocationScreen({ route, navigation }) {
   const chooseSearchResult = async (item) => { setSearchResults([]); await selectCoordinates(item, item.title); };
   const chooseSaved = async (item) => { setAddress(item.address); setCoordinates({ latitude: item.latitude, longitude: item.longitude }); moveMap(item); };
 
-  const handleMapPress = async (event) => { mapTouched.current = false; await selectCoordinates(event.nativeEvent.coordinate, "", false); moveMap(event.nativeEvent.coordinate); };
+  const handleMapPress = async (event) => {
+    const coord = event?.nativeEvent?.coordinate;
+    if (!coord || typeof coord.latitude !== "number" || typeof coord.longitude !== "number") return;
+    mapTouched.current = false;
+    await selectCoordinates(coord, "", false);
+    moveMap(coord);
+  };
   const handlePanDrag = () => {
     mapTouched.current = true;
     if (!mapMoving) { setMapMoving(true); Animated.spring(pinLift, { toValue: -8, useNativeDriver: true, speed: 20 }).start(); }
@@ -104,8 +133,10 @@ export default function SelectLocationScreen({ route, navigation }) {
     if (!mapTouched.current) return;
     mapTouched.current = false; setMapMoving(false);
     Animated.spring(pinLift, { toValue: 0, useNativeDriver: true, speed: 18 }).start();
-    const coords = { latitude: region.latitude, longitude: region.longitude };
-    setCoordinates(coords); await resolveAddress(coords);
+    if (region && typeof region.latitude === "number" && typeof region.longitude === "number" && !isNaN(region.latitude) && !isNaN(region.longitude)) {
+      const coords = { latitude: region.latitude, longitude: region.longitude };
+      setCoordinates(coords); await resolveAddress(coords);
+    }
   };
 
   const persistAddress = async () => {
@@ -147,8 +178,10 @@ export default function SelectLocationScreen({ route, navigation }) {
           {error ? <View style={s.errorBox}><Text style={s.errorText}>{error}</Text></View> : null}
 
           <View style={s.mapCard}>
-            <MapView ref={mapRef} style={s.map} initialRegion={DEFAULT_REGION} showsUserLocation showsMyLocationButton={false} onPress={handleMapPress} onPanDrag={handlePanDrag} onRegionChangeComplete={handleRegionComplete}>
-            </MapView>
+            <MapErrorBoundary fallback={<View style={[s.map, { backgroundColor: "#EBE5DF", alignItems: "center", justifyContent: "center" }]}><Text style={{ color: colors.ink, fontWeight: "700", fontSize: 11 }}>{hindi ? "मानचित्र खोजें / पता दर्ज करें" : "Use search or current location above"}</Text></View>}>
+              <MapView ref={mapRef} style={s.map} initialRegion={DEFAULT_REGION} showsUserLocation={hasPermission} showsMyLocationButton={false} onPress={handleMapPress} onPanDrag={handlePanDrag} onRegionChangeComplete={handleRegionComplete}>
+              </MapView>
+            </MapErrorBoundary>
             <View pointerEvents="none" style={s.pinLayer}><Animated.View style={[s.pin, { transform: [{ translateY: pinLift }] }]}><View style={s.pinHead}><View style={s.pinCore} /></View><View style={s.pinTail} /></Animated.View><View style={[s.pinShadow, mapMoving && s.pinShadowMoving]} /></View>
             <View style={s.mapHint}><Text style={s.mapHintText}>{hindi ? "सटीक स्थान के लिए नक्शा खिसकाएं" : "Move the map to adjust the exact point"}</Text></View>
             <View style={s.mapBadge}><Text style={[s.mapBadgeText, coordinates && s.mapBadgeTextActive]}>{coordinates ? (hindi ? "स्थान चुना गया" : "LOCATION SELECTED") : (hindi ? "पिन रखें" : "PLACE THE PIN")}</Text></View>

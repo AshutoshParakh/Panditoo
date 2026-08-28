@@ -11,7 +11,9 @@ const { getNextBatch } = require("../utils/geo");
 
 const serviceOtpHash = (bookingId, phase, otp) =>
   crypto.createHash("sha256").update(`${bookingId}:${phase}:${otp}`).digest("hex");
-const generateServiceOtp = () => String(Math.floor(100000 + Math.random() * 900000));
+const serviceVisitOtpHash = (bookingId, visitNumber, phase, otp) =>
+  crypto.createHash("sha256").update(`${bookingId}:visit:${visitNumber}:${phase}:${otp}`).digest("hex");
+const generateServiceOtp = () => String(crypto.randomInt(100000, 1000000));
 
 const serviceOtpEncryptionKey = () => crypto
   .createHash("sha256")
@@ -45,7 +47,13 @@ const attachActiveServiceOtp = (booking) => {
   delete booking.service_otp_phase;
   delete booking.start_otp_expires_at;
   delete booking.end_otp_expires_at;
-  if (otp) booking.service_otp = { phase, code: otp, expires_at: expiresAt };
+  if (otp) booking.service_otp = {
+    phase,
+    code: otp,
+    expires_at: expiresAt,
+    visit_number: booking.current_visit_number || 1,
+    service_days: Number(booking.service_days || 1),
+  };
   return booking;
 };
 
@@ -80,7 +88,7 @@ const createBooking = async (req, res, next) => {
 
     const poojaTypeResult = await client.query(
       `
-        SELECT id, name_en, name_hi, base_price, is_active
+        SELECT id, name_en, name_hi, base_price, service_days, is_active
         FROM pooja_types
         WHERE id = $1
         LIMIT 1
@@ -198,9 +206,10 @@ const createBooking = async (req, res, next) => {
           payout_basis_amount,
           referral_campaign_id,
           referral_code,
-          referral_discount_amount
+          referral_discount_amount,
+          service_days
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending', $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', 1, 15, $8, $9, 'pending', $10, 'pending', $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
         RETURNING id, user_id, pooja_type_id, status, total_price, prepaid_amount, prepaid_status, pandit_payout_amount, pandit_payout_status, created_at
       `,
       [
@@ -224,10 +233,20 @@ const createBooking = async (req, res, next) => {
         quote.referral?.id || null,
         quote.referral?.code || null,
         quote.referral ? quote.discount_amount : 0,
+        Number(poojaType.service_days || 1),
       ]
     );
 
     const booking = bookingResult.rows[0];
+
+    if (Number(poojaType.service_days || 1) > 1) {
+      await client.query(
+        `INSERT INTO booking_service_visits (booking_id, visit_number, scheduled_date, scheduled_time)
+         SELECT $1, day_number, $2::date + (day_number - 1), $3::time
+         FROM generate_series(1, $4::int) AS day_number`,
+        [booking.id, booking_date, time24, Number(poojaType.service_days)]
+      );
+    }
 
     for (const panditId of panditIdsToAssign) {
       await client.query(
@@ -292,18 +311,26 @@ const getBookingById = async (req, res, next) => {
           b.confirmed_pandit_id,
           b.pandit_payout_amount,
           b.pandit_payout_status,
+          b.service_days,
           b.created_at,
           b.updated_at,
-          b.service_otp_ciphertext,
-          b.service_otp_phase,
-          b.start_otp_expires_at,
-          b.end_otp_expires_at,
+          CASE WHEN b.service_days > 1 THEN visit.service_otp_ciphertext ELSE b.service_otp_ciphertext END AS service_otp_ciphertext,
+          CASE WHEN b.service_days > 1 THEN visit.service_otp_phase ELSE b.service_otp_phase END AS service_otp_phase,
+          CASE WHEN b.service_days > 1 THEN visit.start_otp_expires_at ELSE b.start_otp_expires_at END AS start_otp_expires_at,
+          CASE WHEN b.service_days > 1 THEN visit.end_otp_expires_at ELSE b.end_otp_expires_at END AS end_otp_expires_at,
+          visit.visit_number AS current_visit_number,
+          visit.scheduled_date AS current_visit_date,
+          (SELECT COUNT(*)::int FROM booking_service_visits done WHERE done.booking_id = b.id AND done.completed_at IS NOT NULL) AS completed_visits,
           pt.name_en,
           pt.name_hi,
           pt.description_en,
           pt.description_hi
         FROM bookings b
         INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
+        LEFT JOIN LATERAL (
+          SELECT v.* FROM booking_service_visits v
+          WHERE v.booking_id = b.id AND v.completed_at IS NULL ORDER BY v.visit_number LIMIT 1
+        ) visit ON TRUE
         WHERE b.id = $1
           AND b.user_id = $2
         LIMIT 1
@@ -376,12 +403,16 @@ const listBookingsForUser = async (req, res, next) => {
             b.confirmed_pandit_id,
             b.pandit_payout_amount,
             b.pandit_payout_status,
+            b.service_days,
             b.created_at,
             b.updated_at,
-            b.service_otp_ciphertext,
-            b.service_otp_phase,
-            b.start_otp_expires_at,
-            b.end_otp_expires_at,
+            CASE WHEN b.service_days > 1 THEN visit.service_otp_ciphertext ELSE b.service_otp_ciphertext END AS service_otp_ciphertext,
+            CASE WHEN b.service_days > 1 THEN visit.service_otp_phase ELSE b.service_otp_phase END AS service_otp_phase,
+            CASE WHEN b.service_days > 1 THEN visit.start_otp_expires_at ELSE b.start_otp_expires_at END AS start_otp_expires_at,
+            CASE WHEN b.service_days > 1 THEN visit.end_otp_expires_at ELSE b.end_otp_expires_at END AS end_otp_expires_at,
+            visit.visit_number AS current_visit_number,
+            visit.scheduled_date AS current_visit_date,
+            (SELECT COUNT(*)::int FROM booking_service_visits done WHERE done.booking_id = b.id AND done.completed_at IS NOT NULL) AS completed_visits,
             pt.name_en,
             pt.name_hi,
             CASE WHEN p.id IS NOT NULL THEN json_build_object(
@@ -392,6 +423,10 @@ const listBookingsForUser = async (req, res, next) => {
           FROM bookings b
           INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
           LEFT JOIN pandits p ON p.id = b.confirmed_pandit_id
+          LEFT JOIN LATERAL (
+            SELECT v.* FROM booking_service_visits v
+            WHERE v.booking_id = b.id AND v.completed_at IS NULL ORDER BY v.visit_number LIMIT 1
+          ) visit ON TRUE
           WHERE b.user_id = $1
           ORDER BY b.created_at DESC
           LIMIT $2 OFFSET $3
@@ -487,7 +522,7 @@ const handlePanditBookingResponse = async (req, res, next) => {
 
   try {
     const { bookingId } = req.params;
-    const { response } = req.body;
+    const { response, bundle_commitment_confirmed = false } = req.body;
     const panditId = req.pandit.id;
 
     await client.query("BEGIN");
@@ -495,6 +530,7 @@ const handlePanditBookingResponse = async (req, res, next) => {
     const requestResult = await client.query(
       `
         SELECT br.id, br.status, br.booking_id, b.booking_date, b.booking_time, b.prepaid_status,
+               b.service_days, b.booking_date + (b.service_days - 1) AS service_end_date,
                effective_pooja_credit_cost(pt.id,b.booking_date) AS credit_cost
         FROM booking_requests br
         INNER JOIN bookings b ON b.id = br.booking_id
@@ -533,10 +569,46 @@ const handlePanditBookingResponse = async (req, res, next) => {
       return res.status(200).json({ success: true, message: "response_recorded" });
     }
 
-    const unavailableResult = await client.query("SELECT 1 FROM pandit_unavailable_dates WHERE pandit_id=$1 AND unavailable_date=$2::date", [panditId, bookingRequest.booking_date]);
+    if (Number(bookingRequest.service_days) > 1 && bundle_commitment_confirmed !== true) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        success: false,
+        message: `This is a ${bookingRequest.service_days}-day bundle. Confirm that you can visit every day at the selected time before accepting.`,
+      });
+    }
+
+    // Serialize acceptances for this pandit. Without this lock, two different
+    // bookings accepted at the same instant could both pass the overlap check.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`pandit-booking:${panditId}`]);
+
+    const unavailableResult = await client.query(
+      `SELECT unavailable_date
+       FROM pandit_unavailable_dates
+       WHERE pandit_id = $1
+         AND unavailable_date BETWEEN $2::date AND $2::date + ($3::int - 1)
+       LIMIT 1`,
+      [panditId, bookingRequest.booking_date, bookingRequest.service_days]
+    );
     if (unavailableResult.rowCount) {
       await client.query("ROLLBACK");
-      return res.status(409).json({ success: false, message: "You marked this date unavailable. Update your calendar before accepting." });
+      return res.status(409).json({ success: false, message: `You are unavailable on ${unavailableResult.rows[0].unavailable_date}. Update your calendar before accepting this bundle.` });
+    }
+
+
+    const conflictResult = await client.query(
+      `SELECT busy.booking_date
+       FROM bookings busy
+       WHERE busy.confirmed_pandit_id = $1
+         AND busy.status = 'confirmed'
+         AND busy.booking_time = $2::time
+         AND daterange(busy.booking_date, busy.booking_date + busy.service_days, '[)')
+             && daterange($3::date, $3::date + $4::int, '[)')
+       LIMIT 1`,
+      [panditId, bookingRequest.booking_time, bookingRequest.booking_date, bookingRequest.service_days]
+    );
+    if (conflictResult.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ success: false, message: "This bundle overlaps another confirmed booking at the selected time." });
     }
 
     const bookingUpdateResult = await client.query(
@@ -572,12 +644,16 @@ const handlePanditBookingResponse = async (req, res, next) => {
       await client.query("COMMIT");
 
       await triggerBookingWonNotifications({ bookingId, panditId });
-      await lockPanditCalendar({
-        panditId,
-        bookingId,
-        bookingDate: bookingRequest.booking_date,
-        bookingTime: bookingRequest.booking_time,
-      });
+      for (let dayOffset = 0; dayOffset < Number(bookingRequest.service_days || 1); dayOffset += 1) {
+        const calendarDate = new Date(bookingRequest.booking_date);
+        calendarDate.setUTCDate(calendarDate.getUTCDate() + dayOffset);
+        await lockPanditCalendar({
+          panditId,
+          bookingId,
+          bookingDate: calendarDate.toISOString().slice(0, 10),
+          bookingTime: bookingRequest.booking_time,
+        });
+      }
 
       return res.status(200).json({
         success: true,
@@ -624,38 +700,74 @@ const sendServiceOtp = (phase) => async (req, res, next) => {
   try {
     const { bookingId } = req.params;
     const result = await query(
-      `SELECT b.id, b.status, b.service_started_at, u.phone
-       FROM bookings b INNER JOIN users u ON u.id = b.user_id
+      `SELECT b.id, b.status, b.service_days, b.service_started_at, u.phone,
+              visit.id AS visit_id, visit.visit_number, visit.scheduled_date,
+              visit.started_at AS visit_started_at, visit.completed_at AS visit_completed_at
+       FROM bookings b
+       INNER JOIN users u ON u.id = b.user_id
+       LEFT JOIN LATERAL (
+         SELECT v.* FROM booking_service_visits v
+         WHERE v.booking_id = b.id AND v.completed_at IS NULL
+         ORDER BY v.visit_number LIMIT 1
+       ) visit ON TRUE
        WHERE b.id = $1 AND b.confirmed_pandit_id = $2 LIMIT 1`,
       [bookingId, req.pandit.id]
     );
     if (!result.rowCount) return res.status(404).json({ success: false, message: "Booking not found" });
     const booking = result.rows[0];
     if (booking.status !== "confirmed") return res.status(400).json({ success: false, message: "Booking is not active" });
-    if (phase === "start" && booking.service_started_at) return res.status(400).json({ success: false, message: "Pooja has already started" });
-    if (phase === "end" && !booking.service_started_at) return res.status(400).json({ success: false, message: "Start the pooja first" });
+    const isBundle = Number(booking.service_days) > 1;
+    if (isBundle && !booking.visit_id) return res.status(400).json({ success: false, message: "All bundle visits are already complete" });
+    if (isBundle) {
+      const todayResult = await query("SELECT (NOW() AT TIME ZONE 'Asia/Kolkata')::date AS today");
+      if (new Date(booking.scheduled_date) > new Date(todayResult.rows[0].today)) {
+        return res.status(400).json({ success: false, message: `Day ${booking.visit_number} unlocks on ${booking.scheduled_date}` });
+      }
+      if (phase === "start" && booking.visit_started_at) return res.status(400).json({ success: false, message: `Day ${booking.visit_number} has already started` });
+      if (phase === "end" && !booking.visit_started_at) return res.status(400).json({ success: false, message: `Start day ${booking.visit_number} first` });
+    } else {
+      if (phase === "start" && booking.service_started_at) return res.status(400).json({ success: false, message: "Pooja has already started" });
+      if (phase === "end" && !booking.service_started_at) return res.status(400).json({ success: false, message: "Start the pooja first" });
+    }
     const otp = generateServiceOtp();
     const action = phase === "start" ? "start" : "complete";
-    const otpMessage = `Your OTP to ${action} Panditoo booking ${bookingId} is ${otp}. Share it only with your pandit. Valid for 5 minutes.`;
-    await query(
-      `UPDATE bookings SET ${phase}_otp_hash = $1, ${phase}_otp_expires_at = NOW() + INTERVAL '5 minutes',
-         service_otp_ciphertext = $2, service_otp_phase = $3, updated_at = NOW() WHERE id = $4`,
-      [serviceOtpHash(bookingId, phase, otp), encryptServiceOtp(otp), phase, bookingId]
-    );
+    const dayLabel = isBundle ? ` day ${booking.visit_number} of ${booking.service_days}` : "";
+    const otpMessage = `Your OTP to ${action}${dayLabel} for Panditoo booking ${bookingId} is ${otp}. Share it only with your pandit. Valid for 5 minutes.`;
+    if (isBundle) {
+      await query(
+        `UPDATE booking_service_visits SET ${phase}_otp_hash = $1, ${phase}_otp_expires_at = NOW() + INTERVAL '5 minutes',
+           service_otp_ciphertext = $2, service_otp_phase = $3, updated_at = NOW() WHERE id = $4`,
+        [serviceVisitOtpHash(bookingId, booking.visit_number, phase, otp), encryptServiceOtp(otp), phase, booking.visit_id]
+      );
+    } else {
+      await query(
+        `UPDATE bookings SET ${phase}_otp_hash = $1, ${phase}_otp_expires_at = NOW() + INTERVAL '5 minutes',
+           service_otp_ciphertext = $2, service_otp_phase = $3, updated_at = NOW() WHERE id = $4`,
+        [serviceOtpHash(bookingId, phase, otp), encryptServiceOtp(otp), phase, bookingId]
+      );
+    }
     const delivery = await sendOTP(booking.phone, otp, {
       purpose: `service_${phase} booking=${bookingId}`,
       message: otpMessage,
     });
     if (!delivery.success) {
-      await query(
-        `UPDATE bookings SET ${phase}_otp_hash = NULL, ${phase}_otp_expires_at = NULL,
-           service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW() WHERE id = $1`,
-        [bookingId]
-      );
+      if (isBundle) {
+        await query(
+          `UPDATE booking_service_visits SET ${phase}_otp_hash = NULL, ${phase}_otp_expires_at = NULL,
+             service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW() WHERE id = $1`,
+          [booking.visit_id]
+        );
+      } else {
+        await query(
+          `UPDATE bookings SET ${phase}_otp_hash = NULL, ${phase}_otp_expires_at = NULL,
+             service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW() WHERE id = $1`,
+          [bookingId]
+        );
+      }
       return res.status(502).json({ success: false, message: "Could not send OTP to the customer" });
     }
     console.log(`[SERVICE OTP] ${phase.toUpperCase()} OTP sent | booking=${bookingId} | customer=${booking.phone} | provider=${delivery.provider}`);
-    return res.json({ success: true, message: `${phase}_otp_sent`, expiresInMinutes: 5 });
+    return res.json({ success: true, message: `${phase}_otp_sent`, expiresInMinutes: 5, visit_number: booking.visit_number || 1, service_days: Number(booking.service_days || 1) });
   } catch (error) { return next(error); }
 };
 
@@ -663,6 +775,32 @@ const verifyStartServiceOtp = async (req, res, next) => {
   try {
     const otp = String(req.body.otp || "").trim();
     if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, message: "Enter a valid 6-digit OTP" });
+    const bookingResult = await query(
+      `SELECT b.service_days, visit.id AS visit_id, visit.visit_number
+       FROM bookings b
+       LEFT JOIN LATERAL (
+         SELECT id, visit_number FROM booking_service_visits
+         WHERE booking_id = b.id AND completed_at IS NULL ORDER BY visit_number LIMIT 1
+       ) visit ON TRUE
+       WHERE b.id = $1 AND b.confirmed_pandit_id = $2 AND b.status = 'confirmed'`,
+      [req.params.bookingId, req.pandit.id]
+    );
+    if (!bookingResult.rowCount) return res.status(404).json({ success: false, message: "Booking not found" });
+    if (Number(bookingResult.rows[0].service_days) > 1) {
+      const visitResult = await query(
+        `UPDATE booking_service_visits SET started_at = NOW(), start_otp_hash = NULL, start_otp_expires_at = NULL,
+           service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
+         WHERE id = $1
+           AND started_at IS NULL
+           AND scheduled_date <= (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+           AND start_otp_hash = $2 AND start_otp_expires_at > NOW()
+         RETURNING visit_number, scheduled_date, started_at`,
+        [bookingResult.rows[0].visit_id, serviceVisitOtpHash(req.params.bookingId, bookingResult.rows[0].visit_number, "start", otp)]
+      );
+      if (!visitResult.rowCount) return res.status(400).json({ success: false, message: "Invalid or expired start OTP" });
+      await query("UPDATE bookings SET service_started_at = COALESCE(service_started_at, $1), updated_at = NOW() WHERE id = $2", [visitResult.rows[0].started_at, req.params.bookingId]);
+      return res.json({ success: true, message: "pooja_day_started", service_started_at: visitResult.rows[0].started_at, visit_number: visitResult.rows[0].visit_number, service_days: Number(bookingResult.rows[0].service_days) });
+    }
     const result = await query(
       `UPDATE bookings SET service_started_at = NOW(), start_otp_hash = NULL, start_otp_expires_at = NULL,
          service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
@@ -683,14 +821,64 @@ const verifyEndServiceOtp = async (req, res, next) => {
     const otp = String(req.body.otp || "").trim();
     if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, message: "Enter a valid 6-digit OTP" });
     await client.query("BEGIN");
-    const result = await client.query(
-      `UPDATE bookings SET status = 'completed', service_completed_at = NOW(), end_otp_hash = NULL, end_otp_expires_at = NULL,
-         service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
-       WHERE id = $1 AND confirmed_pandit_id = $2 AND status = 'confirmed' AND service_started_at IS NOT NULL
-         AND end_otp_hash = $3 AND end_otp_expires_at > NOW()
-       RETURNING id, confirmed_pandit_id, payment_percent, pandit_payout_amount, service_started_at, service_completed_at`,
-      [req.params.bookingId, req.pandit.id, serviceOtpHash(req.params.bookingId, "end", otp)]
+    const bookingLock = await client.query(
+      `SELECT b.service_days, visit.id AS visit_id, visit.visit_number
+       FROM bookings b
+       LEFT JOIN LATERAL (
+         SELECT id, visit_number FROM booking_service_visits
+         WHERE booking_id = b.id AND completed_at IS NULL ORDER BY visit_number LIMIT 1
+       ) visit ON TRUE
+       WHERE b.id = $1 AND b.confirmed_pandit_id = $2 AND b.status = 'confirmed'
+       FOR UPDATE OF b`,
+      [req.params.bookingId, req.pandit.id]
     );
+    if (!bookingLock.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ success: false, message: "Booking not found" }); }
+    const activeBooking = bookingLock.rows[0];
+    let result;
+    if (Number(activeBooking.service_days) > 1) {
+      const visitResult = await client.query(
+        `UPDATE booking_service_visits SET completed_at = NOW(), end_otp_hash = NULL, end_otp_expires_at = NULL,
+           service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
+         WHERE id = $1 AND started_at IS NOT NULL AND completed_at IS NULL
+           AND end_otp_hash = $2 AND end_otp_expires_at > NOW()
+         RETURNING visit_number, started_at, completed_at`,
+        [activeBooking.visit_id, serviceVisitOtpHash(req.params.bookingId, activeBooking.visit_number, "end", otp)]
+      );
+      if (!visitResult.rowCount) { await client.query("ROLLBACK"); return res.status(400).json({ success: false, message: "Invalid or expired completion OTP" }); }
+      const nextVisit = await client.query(
+        `SELECT visit_number, scheduled_date, scheduled_time
+         FROM booking_service_visits
+         WHERE booking_id = $1 AND completed_at IS NULL ORDER BY visit_number LIMIT 1`,
+        [req.params.bookingId]
+      );
+      if (nextVisit.rowCount) {
+        await client.query("COMMIT");
+        return res.json({
+          success: true,
+          message: "pooja_day_completed",
+          booking_completed: false,
+          completed_visit_number: visitResult.rows[0].visit_number,
+          service_days: Number(activeBooking.service_days),
+          service_completed_at: visitResult.rows[0].completed_at,
+          next_visit: nextVisit.rows[0],
+        });
+      }
+      result = await client.query(
+        `UPDATE bookings SET status = 'completed', service_completed_at = NOW(), updated_at = NOW()
+         WHERE id = $1 AND status = 'confirmed'
+         RETURNING id, confirmed_pandit_id, payment_percent, pandit_payout_amount, service_started_at, service_completed_at`,
+        [req.params.bookingId]
+      );
+    } else {
+      result = await client.query(
+        `UPDATE bookings SET status = 'completed', service_completed_at = NOW(), end_otp_hash = NULL, end_otp_expires_at = NULL,
+           service_otp_ciphertext = NULL, service_otp_phase = NULL, updated_at = NOW()
+         WHERE id = $1 AND confirmed_pandit_id = $2 AND status = 'confirmed' AND service_started_at IS NOT NULL
+           AND end_otp_hash = $3 AND end_otp_expires_at > NOW()
+         RETURNING id, confirmed_pandit_id, payment_percent, pandit_payout_amount, service_started_at, service_completed_at`,
+        [req.params.bookingId, req.pandit.id, serviceOtpHash(req.params.bookingId, "end", otp)]
+      );
+    }
     if (!result.rowCount) { await client.query("ROLLBACK"); return res.status(400).json({ success: false, message: "Invalid or expired completion OTP" }); }
     await client.query(
       `INSERT INTO payments (booking_id, amount, type, status)
@@ -720,7 +908,7 @@ const verifyEndServiceOtp = async (req, res, next) => {
     }
     await client.query("COMMIT");
     console.log(`[SERVICE] COMPLETED | booking=${req.params.bookingId} | pandit=${req.pandit.id} | completedAt=${result.rows[0].service_completed_at.toISOString()}`);
-    return res.json({ success: true, message: "booking_completed", service_started_at: result.rows[0].service_started_at, service_completed_at: result.rows[0].service_completed_at });
+    return res.json({ success: true, message: "booking_completed", booking_completed: true, service_days: Number(activeBooking.service_days || 1), service_started_at: result.rows[0].service_started_at, service_completed_at: result.rows[0].service_completed_at });
   } catch (error) { try { await client.query("ROLLBACK"); } catch {} return next(error); }
   finally { client.release(); }
 };
@@ -749,6 +937,8 @@ const listRequestsForPandit = async (req, res, next) => {
            b.id AS booking_id,
            b.booking_date,
            b.booking_time,
+           b.service_days,
+           b.booking_date + (b.service_days - 1) AS service_end_date,
            CASE WHEN b.status <> 'completed' THEN b.address ELSE NULL END AS address,
            b.total_price,
            b.pandit_payout_amount,
@@ -803,6 +993,8 @@ const listBookingsForPandit = async (req, res, next) => {
            b.id AS booking_id,
            b.booking_date,
            b.booking_time,
+           b.service_days,
+           b.booking_date + (b.service_days - 1) AS service_end_date,
            CASE WHEN b.status <> 'completed' THEN b.address ELSE NULL END AS address,
            b.status AS booking_status,
            b.total_price,
@@ -810,6 +1002,12 @@ const listBookingsForPandit = async (req, res, next) => {
            b.pandit_payout_status,
            (to_jsonb(b)->>'service_started_at')::timestamptz AS service_started_at,
            (to_jsonb(b)->>'service_completed_at')::timestamptz AS service_completed_at,
+           visit.visit_number AS current_visit_number,
+           visit.scheduled_date AS current_visit_date,
+           visit.scheduled_time AS current_visit_time,
+           visit.started_at AS current_visit_started_at,
+           visit.completed_at AS current_visit_completed_at,
+           (SELECT COUNT(*)::int FROM booking_service_visits done WHERE done.booking_id = b.id AND done.completed_at IS NOT NULL) AS completed_visits,
            pt.name_en AS pooja_name_en,
            pt.name_hi AS pooja_name_hi,
            u.name AS user_name,
@@ -818,6 +1016,10 @@ const listBookingsForPandit = async (req, res, next) => {
          INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
          INNER JOIN users u ON u.id = b.user_id
          LEFT JOIN ratings r ON r.booking_id = b.id
+         LEFT JOIN LATERAL (
+           SELECT v.* FROM booking_service_visits v
+           WHERE v.booking_id = b.id AND v.completed_at IS NULL ORDER BY v.visit_number LIMIT 1
+         ) visit ON TRUE
          WHERE b.confirmed_pandit_id = $1
          ORDER BY b.booking_date DESC, b.booking_time DESC
          LIMIT $2 OFFSET $3`,
@@ -850,6 +1052,8 @@ const getBookingByIdForPandit = async (req, res, next) => {
          b.id AS booking_id,
          b.booking_date,
          b.booking_time,
+         b.service_days,
+         b.booking_date + (b.service_days - 1) AS service_end_date,
          CASE WHEN b.status <> 'completed' THEN b.address ELSE NULL END AS address,
          CASE WHEN b.status <> 'completed' THEN b.latitude ELSE NULL END AS latitude,
          CASE WHEN b.status <> 'completed' THEN b.longitude ELSE NULL END AS longitude,
@@ -859,21 +1063,33 @@ const getBookingByIdForPandit = async (req, res, next) => {
          b.pandit_payout_status,
          (to_jsonb(b)->>'service_started_at')::timestamptz AS service_started_at,
          (to_jsonb(b)->>'service_completed_at')::timestamptz AS service_completed_at,
+         visit.visit_number AS current_visit_number,
+         visit.scheduled_date AS current_visit_date,
+         visit.scheduled_time AS current_visit_time,
+         visit.started_at AS current_visit_started_at,
+         visit.completed_at AS current_visit_completed_at,
+         (SELECT COUNT(*)::int FROM booking_service_visits done WHERE done.booking_id = b.id AND done.completed_at IS NOT NULL) AS completed_visits,
+         COALESCE((SELECT json_agg(json_build_object(
+           'visit_number', all_visits.visit_number,
+           'scheduled_date', all_visits.scheduled_date,
+           'scheduled_time', all_visits.scheduled_time,
+           'started_at', all_visits.started_at,
+           'completed_at', all_visits.completed_at
+         ) ORDER BY all_visits.visit_number) FROM booking_service_visits all_visits WHERE all_visits.booking_id = b.id), '[]'::json) AS service_visits,
          pt.name_en AS pooja_name_en,
          pt.name_hi AS pooja_name_hi,
          pt.samagri_list,
          u.name AS user_name,
-         CASE
-           WHEN b.status <> 'completed'
-             AND (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata') >= (b.booking_date + b.booking_time - INTERVAL '3 hours')
-           THEN u.phone
-           ELSE NULL
-         END AS user_phone,
+         u.phone AS raw_user_phone,
          r.rating AS customer_rating
        FROM bookings b
        INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
        INNER JOIN users u ON u.id = b.user_id
        LEFT JOIN ratings r ON r.booking_id = b.id
+       LEFT JOIN LATERAL (
+         SELECT v.* FROM booking_service_visits v
+         WHERE v.booking_id = b.id AND v.completed_at IS NULL ORDER BY v.visit_number LIMIT 1
+       ) visit ON TRUE
        WHERE b.id = $1 AND b.confirmed_pandit_id = $2
        LIMIT 1`,
       [req.params.id, panditId]
@@ -883,7 +1099,28 @@ const getBookingByIdForPandit = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Booking not found" });
     }
 
-    return res.status(200).json({ success: true, data: result.rows[0] });
+    const booking = result.rows[0];
+    let user_phone = null;
+    if (booking.booking_status !== "completed" && booking.raw_user_phone) {
+      try {
+        const timeMatch = String(booking.booking_time || "").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+        let hour = 0, min = 0;
+        if (timeMatch) {
+          hour = Number(timeMatch[1]) % 12;
+          if (timeMatch[3] && timeMatch[3].toUpperCase() === "PM") hour += 12;
+          min = Number(timeMatch[2]);
+        }
+        const bDate = new Date(booking.booking_date);
+        bDate.setHours(hour, min, 0, 0);
+        if (Date.now() >= bDate.getTime() - 3 * 60 * 60 * 1000) {
+          user_phone = booking.raw_user_phone;
+        }
+      } catch (_) {}
+    }
+    delete booking.raw_user_phone;
+    booking.user_phone = user_phone;
+
+    return res.status(200).json({ success: true, data: booking });
   } catch (error) {
     return next(error);
   }

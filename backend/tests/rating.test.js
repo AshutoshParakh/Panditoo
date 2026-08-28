@@ -63,6 +63,26 @@ describe("POST /api/ratings", () => {
     );
     ids.poojaTypeId = poojaTypeResult.rows[0].id;
 
+    // Persist the historical 4-star review represented by the pandit's cache.
+    // Rating metrics are deliberately rebuilt from source reviews to avoid drift.
+    const historicalBookingResult = await query(
+      `
+        INSERT INTO bookings (
+          user_id, pooja_type_id, booking_date, booking_time, address, status,
+          total_price, prepaid_amount, prepaid_status, confirmed_pandit_id
+        )
+        VALUES ($1, $2, '2026-07-09', '10:00:00', 'Historical Rating Address',
+          'completed', 1000.00, 300.00, 'paid', $3)
+        RETURNING id
+      `,
+      [ids.userId, ids.poojaTypeId, ids.panditId]
+    );
+    ids.historicalBookingId = historicalBookingResult.rows[0].id;
+    await query(
+      "INSERT INTO ratings (booking_id, rated_by, rating, comment) VALUES ($1, 'user', 4, 'Historical review')",
+      [ids.historicalBookingId]
+    );
+
     // 4. Create Completed Booking
     const completedBookingResult = await query(
       `
@@ -108,17 +128,20 @@ describe("POST /api/ratings", () => {
   });
 
   afterAll(async () => {
-    await query("DELETE FROM ratings WHERE booking_id IN ($1, $2)", [
+    await query("DELETE FROM ratings WHERE booking_id IN ($1, $2, $3)", [
       ids.completedBookingId,
       ids.pendingBookingId,
+      ids.historicalBookingId,
     ]);
-    await query("DELETE FROM bookings WHERE id IN ($1, $2)", [
+    await query("DELETE FROM bookings WHERE id IN ($1, $2, $3)", [
       ids.completedBookingId,
       ids.pendingBookingId,
+      ids.historicalBookingId,
     ]);
     await query("DELETE FROM pooja_types WHERE id = $1", [ids.poojaTypeId]);
     await query("DELETE FROM pandits WHERE id = $1", [ids.panditId]);
     await query("DELETE FROM users WHERE id = $1", [ids.userId]);
+    await pool.end();
   });
 
   it("should return 401 Unauthorized if no token is provided", async () => {

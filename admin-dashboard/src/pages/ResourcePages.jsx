@@ -1,4 +1,4 @@
-import { DeleteOutlined, DownloadOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
+import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, DownloadOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -74,6 +74,7 @@ export function PoojaTypesPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [movingId, setMovingId] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
 
@@ -97,7 +98,7 @@ export function PoojaTypesPage() {
   const openCreate = () => {
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue({ duration_minutes: 60, credit_cost: 10, is_active: true, samagri_list: [{ item: "", brought_by: "pandit" }] });
+    form.setFieldsValue({ duration_minutes: 60, credit_cost: 10, service_days: 1, is_active: true, samagri_list: [{ item: "", brought_by: "pandit" }] });
     setOpen(true);
   };
 
@@ -158,14 +159,30 @@ export function PoojaTypesPage() {
     }
   };
 
+  const moveItem = async (record, direction) => {
+    try {
+      setMovingId(record.id);
+      await adminApiRequest(`/admin/pooja-types/${record.id}/reorder`, { method: "PATCH", token, body: { direction } });
+      message.success(`Pooja moved ${direction}`);
+      await loadItems();
+    } catch (error) {
+      if (handleAuthError(error)) return;
+      message.error(error.message || "Unable to reorder pooja");
+    } finally {
+      setMovingId(null);
+    }
+  };
+
   const columns = [
     { title: "Name (EN)", dataIndex: "name_en", key: "name_en" },
     { title: "Name (HI)", dataIndex: "name_hi", key: "name_hi" },
     { title: "Base Price", dataIndex: "base_price", key: "base_price", render: (value) => `Rs ${value}` },
     { title: "Accept Credits", dataIndex: "credit_cost", key: "credit_cost", render: (value) => `${value || 10} credits` },
+    { title: "Daily Visits", dataIndex: "service_days", key: "service_days", render: (value) => `${value || 1} day${Number(value || 1) === 1 ? "" : "s"}` },
     { title: "Duration", dataIndex: "duration_minutes", key: "duration_minutes", render: (value) => `${value} min` },
     { title: "Samagri Items", key: "samagri_list", render: (_value, record) => Array.isArray(record.samagri_list) ? record.samagri_list.length : 0 },
     { title: "Status", key: "is_active", render: (_value, record) => record.is_active ? <Tag color="green">Active</Tag> : <Tag color="red">Inactive</Tag> },
+    { title: "App Order", key: "display_order", width: 145, render: (_value, record) => { const position = items.findIndex((item) => item.id === record.id); return <Space size={4}><Text>#{position + 1}</Text><Button aria-label={`Move ${record.name_en} up`} title="Move up in app" icon={<ArrowUpOutlined />} disabled={position === 0 || Boolean(movingId)} loading={movingId === record.id} onClick={() => moveItem(record, "up")} /><Button aria-label={`Move ${record.name_en} down`} title="Move down in app" icon={<ArrowDownOutlined />} disabled={position === items.length - 1 || Boolean(movingId)} onClick={() => moveItem(record, "down")} /></Space>; } },
     { title: "Actions", key: "actions", render: (_value, record) => <Space><Button onClick={() => openEdit(record)}>Edit</Button><Button danger disabled={!record.is_active} onClick={() => deactivateItem(record)}>Deactivate</Button></Space> },
   ];
 
@@ -185,6 +202,7 @@ export function PoojaTypesPage() {
             <Col xs={24} md={8}><Form.Item name="base_price" label="Base Price" rules={[{ required: true }]}><InputNumber min={0} style={{ width: "100%" }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item name="credit_cost" label="Credits required to accept" rules={[{ required: true }]}><InputNumber min={1} style={{ width: "100%" }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item name="duration_minutes" label="Duration (minutes)" rules={[{ required: true }]}><InputNumber min={1} style={{ width: "100%" }} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="service_days" label="Consecutive service days" extra="1 = normal one-day pooja. Use 5, 9, 11, etc. for daily bundles." rules={[{ required: true }]}><InputNumber min={1} max={31} style={{ width: "100%" }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item name="is_active" label="Active" valuePropName="checked"><Switch /></Form.Item></Col>
           </Row>
 
@@ -360,4 +378,3 @@ export function PaymentsPage() {
     </Space>
   );
 }
-

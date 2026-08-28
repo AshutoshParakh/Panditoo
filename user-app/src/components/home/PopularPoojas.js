@@ -16,7 +16,7 @@ export default function PopularPoojas({ poojas, onSelect, onViewAll }) {
       {items.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.list}>{items.map((item, index) => (
         <TouchableOpacity key={item.id} activeOpacity={0.78} style={s.card} onPress={() => onSelect(item)}>
           <View style={s.visual}><Text style={s.index}>{String(index + 1).padStart(2, "0")}</Text><Text style={s.om}>ॐ</Text><View style={s.line} /></View>
-          <View style={s.copy}><Text numberOfLines={1} style={s.name}>{item.name}</Text>{item.name_hi ? <Text numberOfLines={1} style={s.hindi}>{item.name_hi}</Text> : null}<View style={s.meta}><Text style={s.duration}>{duration(item.duration_minutes)}</Text><Text style={s.price}>₹{Number(item.base_price || 0).toLocaleString("en-IN")}</Text></View></View>
+          <View style={s.copy}><Text numberOfLines={1} style={s.name}>{item.name}</Text>{item.name_hi ? <Text numberOfLines={1} style={s.hindi}>{item.name_hi}</Text> : null}<View style={s.meta}><Text style={s.duration}>{Number(item.service_days || 1) > 1 ? `${item.service_days}-day bundle` : duration(item.duration_minutes)}</Text><Text style={s.price}>₹{Number(item.base_price || 0).toLocaleString("en-IN")}</Text></View></View>
         </TouchableOpacity>
       ))}</ScrollView> : <Text style={s.empty}>No poojas available right now.</Text>}
     </View>

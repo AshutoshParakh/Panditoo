@@ -292,17 +292,22 @@ const notifyUserSearchingWiderArea = async ({ bookingId }) => {
   );
 };
 
-const sendBookingReminderNotifications = async ({ bookingId }) => {
+const sendBookingReminderNotifications = async ({ bookingId, visitNumber = null }) => {
   const result = await query(
     `
-      SELECT b.user_id, b.confirmed_pandit_id, b.booking_date, b.booking_time, pt.name_en
+      SELECT b.user_id, b.confirmed_pandit_id,
+             COALESCE(visit.scheduled_date, b.booking_date) AS booking_date,
+             COALESCE(visit.scheduled_time, b.booking_time) AS booking_time,
+             b.service_days, visit.visit_number, pt.name_en
       FROM bookings b
       INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
+      LEFT JOIN booking_service_visits visit
+        ON visit.booking_id = b.id AND visit.visit_number = $2
       WHERE b.id = $1
         AND b.confirmed_pandit_id IS NOT NULL
       LIMIT 1
     `,
-    [bookingId]
+    [bookingId, visitNumber]
   );
 
   if (!result.rowCount) {
@@ -310,7 +315,22 @@ const sendBookingReminderNotifications = async ({ bookingId }) => {
   }
 
   const booking = result.rows[0];
-  const message = `Reminder: ${booking.name_en} is scheduled on ${booking.booking_date} at ${booking.booking_time}`;
+  const dayLabel = Number(booking.service_days) > 1 ? ` (day ${booking.visit_number} of ${booking.service_days})` : "";
+  const message = `Reminder: ${booking.name_en}${dayLabel} is scheduled on ${booking.booking_date} at ${booking.booking_time}`;
+
+  await sendPushToUser(
+    booking.user_id,
+    "Pooja reminder",
+    `${booking.name_en}${dayLabel} is scheduled tomorrow at ${booking.booking_time}`,
+    { bookingId, visitNumber: booking.visit_number || 1 }
+  );
+
+  await sendPushToPandit(
+    booking.confirmed_pandit_id,
+    "Tomorrow's pooja",
+    `${booking.name_en}${dayLabel} is scheduled tomorrow at ${booking.booking_time}`,
+    { bookingId, visitNumber: booking.visit_number || 1 }
+  );
 
   await sendWhatsAppToRecipient({
     recipientType: "user",

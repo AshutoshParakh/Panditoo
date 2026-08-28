@@ -243,7 +243,7 @@ function PoojaCard({ pooja, index, onBook }) {
             "A complete traditional ceremony led by an experienced, verified pandit."}
         </p>
         <div className="ceremony-meta">
-          <span>{pooja.duration_minutes || 90} min</span>
+          <span>{Number(pooja.service_days || 1) > 1 ? `${pooja.service_days}-day bundle` : `${pooja.duration_minutes || 90} min`}</span>
           <b>From {money(pooja.base_price)}</b>
         </div>
         <div className="ceremony-cta" aria-hidden="true">
@@ -706,7 +706,7 @@ function PoojaDetail({ pooja, onBook, ...shell }) {
             <div className="detail-facts">
               <span>
                 <small>DURATION</small>
-                <b>{pooja.duration_minutes || 90} minutes</b>
+                <b>{Number(pooja.service_days || 1) > 1 ? `${pooja.service_days} days · daily visits` : `${pooja.duration_minutes || 90} minutes`}</b>
               </span>
               <span>
                 <small>STARTING FROM</small>

@@ -16,11 +16,23 @@ export default function RequestDetailScreen({ route, navigation }) {
   const areaParts = String(request.address || "—").split(",");
   const area = areaParts.length > 2 ? areaParts.slice(-2).join(", ").trim() : request.address || "—";
   const materials = (request.samagri_list || []).filter((item) => item.brought_by === "pandit" || item.provided_by === "pandit");
+  const serviceDays = Number(request.service_days || 1);
+  const formatDate = (value) => value ? new Date(value).toLocaleDateString(hindi ? "hi-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-  const respond = async (interested) => {
+  const respond = async (interested, commitmentConfirmed = false) => {
+    if (interested && serviceDays > 1 && !commitmentConfirmed) {
+      Alert.alert(
+        hindi ? `${serviceDays} दिन की सेवा स्वीकार करें?` : `Accept ${serviceDays}-day bundle?`,
+        hindi
+          ? `आपको ${formatDate(request.booking_date)} से ${formatDate(request.service_end_date)} तक हर दिन ${String(request.booking_time || "").slice(0, 5)} बजे जाना होगा। हर दिन अलग Start और Complete OTP लगेगा।`
+          : `You must visit every day from ${formatDate(request.booking_date)} to ${formatDate(request.service_end_date)} at ${String(request.booking_time || "").slice(0, 5)}. Each day has its own Start and Complete OTP.`,
+        [{ text: hindi ? "नहीं" : "Not ready", style: "cancel" }, { text: hindi ? "हाँ, सभी दिन" : "Yes, all days", onPress: () => respond(true, true) }]
+      );
+      return;
+    }
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/bookings/${request.booking_id}/pandit-response`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ response: interested ? "interested" : "not_interested" }) });
+      const response = await fetch(`${API_URL}/bookings/${request.booking_id}/pandit-response`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ response: interested ? "interested" : "not_interested", bundle_commitment_confirmed: commitmentConfirmed }) });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.message || "Unable to record your response");
       if (interested) navigation.replace("BookingWon", { booking: request });
@@ -36,6 +48,7 @@ export default function RequestDetailScreen({ route, navigation }) {
     <Text style={s.eyebrow}>{hindi ? "पूजा अनुरोध" : "POOJA REQUEST"}</Text>
     <Text style={s.title}>{pooja || "Pooja"}</Text>
     <Text style={s.reference}>#{String(request.booking_id || "").slice(0, 8).toUpperCase()}</Text>
+    {serviceDays > 1 ? <View style={s.bundle}><Text style={s.bundleTitle}>{hindi ? `${serviceDays} दिन का दैनिक बंडल` : `${serviceDays}-DAY DAILY BUNDLE`}</Text><Text style={s.bundleText}>{hindi ? `हर दिन ${String(request.booking_time || "").slice(0, 5)} बजे ग्राहक के पते पर जाएँ। प्रत्येक दिन Start और Complete OTP आवश्यक है।` : `Visit the customer every day at ${String(request.booking_time || "").slice(0, 5)}. A separate Start and Complete OTP is required for every visit.`}</Text><Text style={s.bundleDates}>{formatDate(request.booking_date)} → {formatDate(request.service_end_date)}</Text></View> : null}
     <View style={s.card}>
       <Detail label={hindi ? "ग्राहक" : "Customer"} value={request.user_name || "—"} />
       <Detail label={hindi ? "तारीख" : "Date"} value={request.booking_date ? new Date(request.booking_date).toLocaleDateString(hindi ? "hi-IN" : "en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"} />
@@ -53,4 +66,4 @@ export default function RequestDetailScreen({ route, navigation }) {
 
 const Detail = ({ label, value, accent }) => <View style={s.row}><Text style={s.label}>{label}</Text><Text style={[s.value, accent && s.accent]}>{value}</Text></View>;
 
-const s = StyleSheet.create({ screen:{flex:1,backgroundColor:colors.bg},content:{padding:18,paddingBottom:34},eyebrow:{fontSize:10,fontWeight:"900",letterSpacing:1.4,color:colors.primary},title:{fontSize:27,fontWeight:"900",color:colors.ink,marginTop:8},reference:{fontSize:11,color:colors.muted,marginTop:5},card:{backgroundColor:colors.surface,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:17,marginTop:16,...shadow},row:{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#EEE7E1"},label:{fontSize:11,fontWeight:"700",color:colors.muted},value:{maxWidth:"62%",fontSize:13,fontWeight:"800",color:colors.ink,textAlign:"right"},accent:{color:colors.green,fontSize:17},materialTitle:{fontSize:12,fontWeight:"900",color:colors.ink,marginBottom:8},material:{fontSize:12,lineHeight:23,color:colors.muted},empty:{fontSize:12,color:colors.muted},privacy:{fontSize:11,lineHeight:17,color:colors.muted,textAlign:"center",marginTop:15},actions:{flexDirection:"row",gap:10,marginTop:20},reject:{flex:1,height:52,borderRadius:14,borderWidth:1,borderColor:"#D4C7BD",alignItems:"center",justifyContent:"center"},rejectText:{fontSize:13,fontWeight:"900",color:"#665B53"},accept:{flex:1.4,height:52,borderRadius:14,backgroundColor:colors.green,alignItems:"center",justifyContent:"center"},acceptText:{fontSize:13,fontWeight:"900",color:"#FFF"} });
+const s = StyleSheet.create({ screen:{flex:1,backgroundColor:colors.bg},content:{padding:18,paddingBottom:34},eyebrow:{fontSize:10,fontWeight:"900",letterSpacing:1.4,color:colors.primary},title:{fontSize:27,fontWeight:"900",color:colors.ink,marginTop:8},reference:{fontSize:11,color:colors.muted,marginTop:5},bundle:{backgroundColor:"#FFF0D6",borderRadius:16,borderWidth:1,borderColor:"#E8C98E",padding:15,marginTop:16},bundleTitle:{fontSize:12,fontWeight:"900",letterSpacing:.8,color:"#7B4E16"},bundleText:{fontSize:12,lineHeight:19,fontWeight:"700",color:"#876331",marginTop:6},bundleDates:{fontSize:12,fontWeight:"900",color:colors.primary,marginTop:7},card:{backgroundColor:colors.surface,borderRadius:18,borderWidth:1,borderColor:colors.border,padding:17,marginTop:16,...shadow},row:{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#EEE7E1"},label:{fontSize:11,fontWeight:"700",color:colors.muted},value:{maxWidth:"62%",fontSize:13,fontWeight:"800",color:colors.ink,textAlign:"right"},accent:{color:colors.green,fontSize:17},materialTitle:{fontSize:12,fontWeight:"900",color:colors.ink,marginBottom:8},material:{fontSize:12,lineHeight:23,color:colors.muted},empty:{fontSize:12,color:colors.muted},privacy:{fontSize:11,lineHeight:17,color:colors.muted,textAlign:"center",marginTop:15},actions:{flexDirection:"row",gap:10,marginTop:20},reject:{flex:1,height:52,borderRadius:14,borderWidth:1,borderColor:"#D4C7BD",alignItems:"center",justifyContent:"center"},rejectText:{fontSize:13,fontWeight:"900",color:"#665B53"},accept:{flex:1.4,height:52,borderRadius:14,backgroundColor:colors.green,alignItems:"center",justifyContent:"center"},acceptText:{fontSize:13,fontWeight:"900",color:"#FFF"} });

@@ -236,17 +236,27 @@ const runReminderJob = async () => {
   try {
     const bookingsResult = await query(
       `
-        SELECT b.id, b.user_id, b.confirmed_pandit_id, b.booking_date, b.booking_time, pt.name_en
+        SELECT b.id, b.user_id, b.confirmed_pandit_id,
+               COALESCE(visit.scheduled_date, b.booking_date) AS booking_date,
+               COALESCE(visit.scheduled_time, b.booking_time) AS booking_time,
+               b.service_days, visit.visit_number, pt.name_en
         FROM bookings b
         INNER JOIN pooja_types pt ON pt.id = b.pooja_type_id
+        LEFT JOIN booking_service_visits visit
+          ON visit.booking_id = b.id
+         AND b.service_days > 1
+         AND visit.scheduled_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date + 1
+         AND visit.completed_at IS NULL
         WHERE b.status = 'confirmed'
           AND b.confirmed_pandit_id IS NOT NULL
-          AND b.booking_date = CURRENT_DATE + INTERVAL '1 day'
+          AND ((b.service_days = 1 AND b.booking_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date + 1)
+            OR (b.service_days > 1 AND visit.id IS NOT NULL))
       `
     );
 
     for (const booking of bookingsResult.rows) {
-      const message = `Reminder: ${booking.name_en} is scheduled on ${booking.booking_date} at ${booking.booking_time}`;
+      const dayLabel = Number(booking.service_days) > 1 ? ` (day ${booking.visit_number} of ${booking.service_days})` : "";
+      const message = `Reminder: ${booking.name_en}${dayLabel} is scheduled on ${booking.booking_date} at ${booking.booking_time}`;
 
       const userLogCheck = await query(
         `
@@ -260,7 +270,7 @@ const runReminderJob = async () => {
       );
 
       if (userLogCheck.rowCount === 0) {
-        await sendBookingReminderNotifications({ bookingId: booking.id });
+        await sendBookingReminderNotifications({ bookingId: booking.id, visitNumber: booking.visit_number || null });
       }
     }
   } catch (error) {

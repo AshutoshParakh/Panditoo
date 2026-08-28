@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Linking,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -177,7 +178,11 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <TouchableOpacity accessibilityLabel="Go back" style={styles.back} onPress={() => navigation.goBack()}><Text style={styles.backText}>‹</Text></TouchableOpacity>
           <View style={styles.header}>
-            <View style={styles.brand}><Text style={styles.brandOm}>ॐ</Text><Text style={styles.brandText}>PANDITOO</Text></View>
+            <Image
+              source={require("../../assets/logo.png")}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
             {!isRegistering ? <Text style={styles.welcome}>Begin your ceremony{"\n"}with confidence.</Text> : null}
             <Text style={styles.title}>
               {isRegistering ? "Create Profile" : t("login.title")}
@@ -362,9 +367,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   back: { position: "absolute", top: 14, left: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#E8DCD1", zIndex: 2 },
   backText: { color: "#8F3030", fontSize: 29, marginTop: -3 },
-  brand: { flexDirection: "row", alignItems: "center", backgroundColor: "#8F3030", borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8, marginBottom: 20 },
-  brandOm: { color: "#FFD98C", fontSize: 19, fontWeight: "900", marginRight: 8 },
-  brandText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 1.6 },
+  brandLogo: { width: 104, height: 104, borderRadius: 24, marginBottom: 20 },
   welcome: { color: "#302823", fontSize: 31, lineHeight: 38, fontWeight: "900", textAlign: "center", marginBottom: 17 },
   subtitle: { color: "#877A70", fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 6 },
   stepRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },

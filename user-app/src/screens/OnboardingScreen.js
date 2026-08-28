@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { Image, StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -29,7 +29,11 @@ export default function OnboardingScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.omText}>ॐ</Text>
+          <Image
+            source={require("../../assets/logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>{t("onboarding.title")}</Text>
           <Text style={styles.subtitle}>{t("onboarding.subtitle")}</Text>
         </View>
@@ -74,10 +78,10 @@ const styles = StyleSheet.create({
     marginTop: 60,
     gap: 12,
   },
-  omText: {
-    fontSize: 72,
-    color: "#d97706",
-    fontWeight: "300",
+  logo: {
+    width: 176,
+    height: 176,
+    borderRadius: 28,
     marginBottom: 8,
   },
   title: {

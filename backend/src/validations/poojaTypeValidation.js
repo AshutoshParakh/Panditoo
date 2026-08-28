@@ -29,6 +29,7 @@ const createPoojaTypeSchema = Joi.object({
   description_hi: Joi.string().trim().allow("", null).optional(),
   base_price: Joi.number().min(0).required(),
   credit_cost: Joi.number().integer().min(1).default(10),
+  service_days: Joi.number().integer().min(1).max(31).default(1),
   duration_minutes: Joi.number().integer().min(1).default(60),
   samagri_list: Joi.array().items(samagriItemSchema).min(1).required(),
   is_active: Joi.boolean().optional(),
@@ -41,6 +42,7 @@ const updatePoojaTypeSchema = Joi.object({
   description_hi: Joi.string().trim().allow("", null).optional(),
   base_price: Joi.number().min(0).optional(),
   credit_cost: Joi.number().integer().min(1).optional(),
+  service_days: Joi.number().integer().min(1).max(31).optional(),
   duration_minutes: Joi.number().integer().min(1).optional(),
   samagri_list: Joi.array().items(samagriItemSchema).min(1).optional(),
   is_active: Joi.boolean().optional(),
@@ -50,4 +52,3 @@ module.exports = {
   createPoojaTypeSchema,
   updatePoojaTypeSchema,
 };
-

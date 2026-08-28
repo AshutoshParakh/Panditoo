@@ -14,6 +14,7 @@ const createBookingSchema = Joi.object({
 
 const panditResponseSchema = Joi.object({
   response: Joi.string().valid("interested", "not_interested").required(),
+  bundle_commitment_confirmed: Joi.boolean().optional(),
 });
 
 module.exports = {
