@@ -31,7 +31,7 @@ const recordJourneyEvent = async (req, res, next) => {
         if (payload && payload.sub) {
           userId = payload.sub;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     await query(
@@ -82,24 +82,24 @@ const getJourneyAnalytics = async (req, res, next) => {
 
     const whereClause = timeFilters.length ? `WHERE ${timeFilters.join(" AND ")}` : "";
 
-    // 1. Funnel Aggregates (Total sessions & Authenticated sessions per funnel stage)
+    // 1. Funnel Aggregates (Cumulative funnel stage metrics)
     const funnelResult = await query(
       `
       SELECT
-        COUNT(DISTINCT CASE WHEN event_type = 'session_start' THEN session_id END)::int AS session_start,
-        COUNT(DISTINCT CASE WHEN event_type = 'session_start' AND user_id IS NOT NULL THEN session_id END)::int AS authed_session_start,
+        COUNT(DISTINCT session_id)::int AS session_start,
+        COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN session_id END)::int AS authed_session_start,
 
-        COUNT(DISTINCT CASE WHEN event_type IN ('pooja_view', 'page_view') THEN session_id END)::int AS pooja_view,
-        COUNT(DISTINCT CASE WHEN event_type IN ('pooja_view', 'page_view') AND user_id IS NOT NULL THEN session_id END)::int AS authed_pooja_view,
+        COUNT(DISTINCT CASE WHEN event_type = 'pooja_view' OR (pooja_id IS NOT NULL AND event_type != 'booking_completed') THEN session_id END)::int AS pooja_view,
+        COUNT(DISTINCT CASE WHEN (event_type = 'pooja_view' OR pooja_id IS NOT NULL) AND user_id IS NOT NULL THEN session_id END)::int AS authed_pooja_view,
 
-        COUNT(DISTINCT CASE WHEN event_type IN ('booking_start', 'date_time_select', 'address_enter') THEN session_id END)::int AS booking_started,
-        COUNT(DISTINCT CASE WHEN event_type IN ('booking_start', 'date_time_select', 'address_enter') AND user_id IS NOT NULL THEN session_id END)::int AS authed_booking_started,
+        COUNT(DISTINCT CASE WHEN event_type IN ('booking_start', 'date_time_select', 'address_enter', 'pandit_select', 'checkout_view', 'payment_initiated', 'booking_completed') THEN session_id END)::int AS booking_started,
+        COUNT(DISTINCT CASE WHEN event_type IN ('booking_start', 'date_time_select', 'address_enter', 'pandit_select', 'checkout_view', 'payment_initiated', 'booking_completed') AND user_id IS NOT NULL THEN session_id END)::int AS authed_booking_started,
 
-        COUNT(DISTINCT CASE WHEN event_type = 'checkout_view' THEN session_id END)::int AS checkout_view,
-        COUNT(DISTINCT CASE WHEN event_type = 'checkout_view' AND user_id IS NOT NULL THEN session_id END)::int AS authed_checkout_view,
+        COUNT(DISTINCT CASE WHEN event_type IN ('checkout_view', 'address_enter', 'pandit_select', 'payment_initiated', 'booking_completed') THEN session_id END)::int AS checkout_view,
+        COUNT(DISTINCT CASE WHEN event_type IN ('checkout_view', 'address_enter', 'pandit_select', 'payment_initiated', 'booking_completed') AND user_id IS NOT NULL THEN session_id END)::int AS authed_checkout_view,
 
-        COUNT(DISTINCT CASE WHEN event_type = 'payment_initiated' THEN session_id END)::int AS payment_initiated,
-        COUNT(DISTINCT CASE WHEN event_type = 'payment_initiated' AND user_id IS NOT NULL THEN session_id END)::int AS authed_payment_initiated,
+        COUNT(DISTINCT CASE WHEN event_type IN ('payment_initiated', 'booking_completed') THEN session_id END)::int AS payment_initiated,
+        COUNT(DISTINCT CASE WHEN event_type IN ('payment_initiated', 'booking_completed') AND user_id IS NOT NULL THEN session_id END)::int AS authed_payment_initiated,
 
         COUNT(DISTINCT CASE WHEN event_type = 'booking_completed' THEN session_id END)::int AS booking_completed,
         COUNT(DISTINCT CASE WHEN event_type = 'booking_completed' AND user_id IS NOT NULL THEN session_id END)::int AS authed_booking_completed
@@ -111,37 +111,96 @@ const getJourneyAnalytics = async (req, res, next) => {
 
     const funnelCounts = funnelResult.rows[0] || {};
 
-    // 2. Drop-off stages distribution
+    // 2. CTE for uncompleted sessions to find exact final drop-off stage per session
     const dropoffResult = await query(
       `
+      WITH completed_sessions AS (
+        SELECT DISTINCT session_id
+        FROM customer_journey_events
+        ${whereClause} ${whereClause ? "AND" : "WHERE"} event_type = 'booking_completed'
+      ),
+      session_max_stage AS (
+        SELECT
+          e.session_id,
+          (ARRAY_AGG(e.user_id ORDER BY e.created_at DESC) FILTER (WHERE e.user_id IS NOT NULL))[1] AS user_id,
+          (ARRAY_AGG(e.pooja_name ORDER BY e.created_at DESC) FILTER (WHERE e.pooja_name IS NOT NULL))[1] AS pooja_name,
+          MAX(e.created_at) AS last_active_at,
+          CASE
+            WHEN BOOL_OR(e.event_type = 'payment_initiated') THEN 'payment_gateway'
+            WHEN BOOL_OR(e.event_type IN ('checkout_view', 'address_enter')) THEN 'address_entry'
+            WHEN BOOL_OR(e.event_type = 'date_time_select') THEN 'date_time_selection'
+            WHEN BOOL_OR(e.event_type = 'pooja_view') OR BOOL_OR(e.dropoff_stage = 'pooja_details') THEN 'pooja_details'
+            ELSE COALESCE((ARRAY_AGG(e.dropoff_stage ORDER BY e.created_at DESC) FILTER (WHERE e.dropoff_stage IS NOT NULL))[1], 'browsing_exit')
+          END AS final_dropoff_stage
+        FROM customer_journey_events e
+        ${whereClause} ${whereClause ? "AND" : "WHERE"} e.session_id NOT IN (SELECT session_id FROM completed_sessions)
+        GROUP BY e.session_id
+      )
       SELECT
-        COALESCE(dropoff_stage, 'browsing_exit') AS stage,
-        COUNT(DISTINCT session_id)::int AS count,
-        COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN session_id END)::int AS authed_count
-      FROM customer_journey_events
-      ${whereClause ? `${whereClause} AND` : "WHERE"} event_type IN ('funnel_dropoff', 'page_view', 'checkout_view')
-        AND session_id NOT IN (
-          SELECT DISTINCT session_id FROM customer_journey_events WHERE event_type = 'booking_completed'
-        )
-      GROUP BY COALESCE(dropoff_stage, 'browsing_exit')
+        final_dropoff_stage AS stage,
+        COUNT(*)::int AS count,
+        COUNT(user_id)::int AS authed_count
+      FROM session_max_stage
+      GROUP BY final_dropoff_stage
       ORDER BY count DESC
       `,
       values
     );
 
     // 3. Authenticated Customers Details per Dropoff Stage
-    const authedCustomersResult = await query(
+    const authedDropoffResult = await query(
       `
-      WITH uncompleted_events AS (
-        SELECT e.*
+      WITH completed_sessions AS (
+        SELECT DISTINCT session_id
+        FROM customer_journey_events
+        ${whereClause} ${whereClause ? "AND" : "WHERE"} event_type = 'booking_completed'
+      ),
+      session_max_stage AS (
+        SELECT
+          e.session_id,
+          (ARRAY_AGG(e.user_id ORDER BY e.created_at DESC) FILTER (WHERE e.user_id IS NOT NULL))[1] AS user_id,
+          (ARRAY_AGG(e.pooja_name ORDER BY e.created_at DESC) FILTER (WHERE e.pooja_name IS NOT NULL))[1] AS pooja_name,
+          MAX(e.created_at) AS last_active_at,
+          CASE
+            WHEN BOOL_OR(e.event_type = 'payment_initiated') THEN 'payment_gateway'
+            WHEN BOOL_OR(e.event_type IN ('checkout_view', 'address_enter')) THEN 'address_entry'
+            WHEN BOOL_OR(e.event_type = 'date_time_select') THEN 'date_time_selection'
+            WHEN BOOL_OR(e.event_type = 'pooja_view') OR BOOL_OR(e.dropoff_stage = 'pooja_details') THEN 'pooja_details'
+            ELSE COALESCE((ARRAY_AGG(e.dropoff_stage ORDER BY e.created_at DESC) FILTER (WHERE e.dropoff_stage IS NOT NULL))[1], 'browsing_exit')
+          END AS final_dropoff_stage
         FROM customer_journey_events e
-        ${whereClause ? `${whereClause} AND` : "WHERE"} e.user_id IS NOT NULL
-          AND e.session_id NOT IN (
-            SELECT DISTINCT session_id FROM customer_journey_events WHERE event_type = 'booking_completed'
-          )
+        ${whereClause} ${whereClause ? "AND" : "WHERE"} e.session_id NOT IN (SELECT session_id FROM completed_sessions)
+        GROUP BY e.session_id
       )
-      SELECT DISTINCT ON (e.user_id, COALESCE(e.dropoff_stage, 'browsing_exit'))
-        COALESCE(e.dropoff_stage, 'browsing_exit') AS stage,
+      SELECT DISTINCT ON (sms.user_id, sms.final_dropoff_stage)
+        sms.final_dropoff_stage AS stage,
+        sms.session_id,
+        sms.last_active_at,
+        sms.pooja_name,
+        u.id AS user_id,
+        u.name AS user_name,
+        u.phone AS user_phone,
+        u.email AS user_email
+      FROM session_max_stage sms
+      JOIN users u ON u.id = sms.user_id
+      ORDER BY sms.user_id, sms.final_dropoff_stage, sms.last_active_at DESC
+      `,
+      values
+    );
+
+    const authedCustomersByStage = {};
+    authedDropoffResult.rows.forEach((row) => {
+      if (!authedCustomersByStage[row.stage]) {
+        authedCustomersByStage[row.stage] = [];
+      }
+      authedCustomersByStage[row.stage].push(row);
+    });
+
+    // 4. Authenticated Customers per Funnel Stage
+    const authedFunnelResult = await query(
+      `
+      SELECT DISTINCT ON (e.user_id, f_stage)
+        f_stage,
         u.id AS user_id,
         u.name AS user_name,
         u.phone AS user_phone,
@@ -149,23 +208,33 @@ const getJourneyAnalytics = async (req, res, next) => {
         e.pooja_name,
         e.session_id,
         e.created_at AS last_active_at
-      FROM uncompleted_events e
+      FROM customer_journey_events e
       JOIN users u ON u.id = e.user_id
-      ORDER BY e.user_id, COALESCE(e.dropoff_stage, 'browsing_exit'), e.created_at DESC
+      CROSS JOIN LATERAL (
+        SELECT CASE
+          WHEN e.event_type = 'booking_completed' THEN 'booking_completed'
+          WHEN e.event_type = 'payment_initiated' THEN 'payment_initiated'
+          WHEN e.event_type IN ('checkout_view', 'address_enter') THEN 'checkout_view'
+          WHEN e.event_type IN ('booking_start', 'date_time_select') THEN 'booking_started'
+          WHEN e.event_type = 'pooja_view' OR e.pooja_id IS NOT NULL THEN 'pooja_view'
+          ELSE 'session_start'
+        END AS f_stage
+      ) s
+      ${whereClause}
+      ORDER BY e.user_id, f_stage, e.created_at DESC
       `,
       values
     );
 
-    // Group authenticated dropoff customers by stage
-    const authedCustomersByStage = {};
-    authedCustomersResult.rows.forEach((row) => {
-      if (!authedCustomersByStage[row.stage]) {
-        authedCustomersByStage[row.stage] = [];
+    const authedCustomersByFunnelStage = {};
+    authedFunnelResult.rows.forEach((row) => {
+      if (!authedCustomersByFunnelStage[row.f_stage]) {
+        authedCustomersByFunnelStage[row.f_stage] = [];
       }
-      authedCustomersByStage[row.stage].push(row);
+      authedCustomersByFunnelStage[row.f_stage].push(row);
     });
 
-    // 4. Recent Sessions Clickstream (Timeline of journeys)
+    // 5. Recent Sessions Clickstream (Timeline of journeys)
     const sessionsResult = await query(
       `
       WITH session_summary AS (
@@ -177,11 +246,13 @@ const getJourneyAnalytics = async (req, res, next) => {
           MAX(e.created_at) AS last_active_at,
           COUNT(e.id)::int AS event_count,
           BOOL_OR(e.event_type = 'booking_completed') AS is_completed,
-          (
-            ARRAY_AGG(
-              e.dropoff_stage ORDER BY e.created_at DESC
-            ) FILTER (WHERE e.dropoff_stage IS NOT NULL)
-          )[1] AS last_dropoff_stage,
+          CASE
+            WHEN BOOL_OR(e.event_type = 'payment_initiated') THEN 'payment_gateway'
+            WHEN BOOL_OR(e.event_type IN ('checkout_view', 'address_enter')) THEN 'address_entry'
+            WHEN BOOL_OR(e.event_type = 'date_time_select') THEN 'date_time_selection'
+            WHEN BOOL_OR(e.event_type = 'pooja_view') OR BOOL_OR(e.dropoff_stage = 'pooja_details') THEN 'pooja_details'
+            ELSE COALESCE((ARRAY_AGG(e.dropoff_stage ORDER BY e.created_at DESC) FILTER (WHERE e.dropoff_stage IS NOT NULL))[1], 'browsing_exit')
+          END AS last_dropoff_stage,
           (
             ARRAY_AGG(
               e.pooja_name ORDER BY e.created_at DESC
@@ -191,7 +262,7 @@ const getJourneyAnalytics = async (req, res, next) => {
         ${whereClause}
         GROUP BY e.session_id
         ORDER BY MAX(e.created_at) DESC
-        LIMIT 50
+        LIMIT 100
       )
       SELECT
         s.*,
@@ -205,7 +276,7 @@ const getJourneyAnalytics = async (req, res, next) => {
       values
     );
 
-    // 5. Fetch detailed clickstream events for top 50 sessions
+    // 6. Fetch detailed clickstream events for sessions
     const sessionIds = sessionsResult.rows.map((r) => r.session_id);
     let eventsMap = {};
 
@@ -242,6 +313,7 @@ const getJourneyAnalytics = async (req, res, next) => {
         funnel: funnelCounts,
         dropoffs: dropoffResult.rows,
         authedCustomersByStage,
+        authedCustomersByFunnelStage,
         sessions: sessionJourneys,
       },
     });
