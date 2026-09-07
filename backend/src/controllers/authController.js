@@ -109,6 +109,19 @@ const sendOtpForActor = async (phone, actorType) => {
 
   const delivery = await sendOTP(normalizedPhone, otp);
   if (!delivery?.success) {
+    if (allowDebugOtp) {
+      logOtpIssued({ actorType, phone: normalizedPhone, otp });
+      return {
+        status: 200,
+        body: {
+          success: true,
+          message: "OTP generated (gateway fallback)",
+          expiresInMinutes: OTP_EXPIRY_MINUTES,
+          otp,
+          debugOtp: otp,
+        },
+      };
+    }
     await query(
       `UPDATE otp_verifications SET consumed_at = NOW() WHERE phone = $1 AND actor_type = $2 AND otp = $3 AND consumed_at IS NULL`,
       [normalizedPhone, actorType, otp]
@@ -221,7 +234,7 @@ const verifyOtpForActor = async (phone, otp, actorType, req = null, options = {}
         );
         entity.referral_code = entity.referral_code || referral.code;
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   const token = signAuthToken({
@@ -259,7 +272,7 @@ const registerUser = async (req, res, next) => {
     if (referral_code) {
       try {
         referral = await getReferralCampaign(referral_code);
-      } catch (_) {}
+      } catch (_) { }
     }
     const userResult = await query(
       `
@@ -535,7 +548,7 @@ const deleteCurrentUser = async (req, res, next) => {
     await client.query("COMMIT");
     return res.status(200).json({ success: true });
   } catch (error) {
-    try { await client.query("ROLLBACK"); } catch (_) {}
+    try { await client.query("ROLLBACK"); } catch (_) { }
     return next(error);
   } finally { client.release(); }
 };

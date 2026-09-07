@@ -99,10 +99,13 @@ const sendOTP = async (phone, otp, options = {}) => {
         credentials.sessionToken = sessionToken.trim();
       }
 
-      const snsClient = new SNSClient({
-        region,
-        credentials,
-      });
+      if (!global.cachedSNSClient) {
+        global.cachedSNSClient = new SNSClient({
+          region,
+          credentials,
+          maxAttempts: 2,
+        });
+      }
 
       const smsAttributes = {
         "AWS.SNS.SMS.SMSType": {
@@ -111,7 +114,6 @@ const sendOTP = async (phone, otp, options = {}) => {
         },
       };
 
-      // For India DLT delivery, these values should match the registered sender/template exactly.
       const senderId = sanitizeEnvValue(process.env.AWS_SNS_SENDER_ID);
       const entityId = sanitizeEnvValue(process.env.AWS_SNS_ENTITY_ID);
       const templateId = sanitizeEnvValue(process.env.AWS_SNS_TEMPLATE_ID);
@@ -143,11 +145,17 @@ const sendOTP = async (phone, otp, options = {}) => {
         MessageAttributes: smsAttributes,
       });
 
-      const response = await snsClient.send(command);
+      // Execute AWS publish with a 6-second timeout promise to guarantee fast response
+      const sendPromise = global.cachedSNSClient.send(command);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("AWS SNS SMS request timed out after 6 seconds")), 6000)
+      );
+
+      const response = await Promise.race([sendPromise, timeoutPromise]);
       console.log(`[OTP:aws] Successfully sent SMS. MessageId: ${response.MessageId}`);
       return { success: true, provider, messageId: response.MessageId };
     } catch (error) {
-      console.error("[OTP:aws] Failed to send AWS SNS SMS:", error);
+      console.error("[OTP:aws] Failed to send AWS SNS SMS:", error.message);
       return { success: false, error: error.message };
     }
   }
