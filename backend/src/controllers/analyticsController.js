@@ -129,6 +129,7 @@ const getJourneyAnalytics = async (req, res, next) => {
             WHEN BOOL_OR(e.event_type = 'payment_initiated') THEN 'payment_gateway'
             WHEN BOOL_OR(e.event_type IN ('checkout_view', 'address_enter')) THEN 'address_entry'
             WHEN BOOL_OR(e.event_type = 'date_time_select') THEN 'date_time_selection'
+            WHEN BOOL_OR(e.event_type IN ('otp_requested', 'auth_otp_sent', 'otp_sent')) OR BOOL_OR(e.dropoff_stage = 'otp_pending') THEN 'otp_pending'
             WHEN BOOL_OR(e.event_type = 'pooja_view') OR BOOL_OR(e.dropoff_stage = 'pooja_details') THEN 'pooja_details'
             ELSE COALESCE((ARRAY_AGG(e.dropoff_stage ORDER BY e.created_at DESC) FILTER (WHERE e.dropoff_stage IS NOT NULL))[1], 'browsing_exit')
           END AS final_dropoff_stage
@@ -165,6 +166,7 @@ const getJourneyAnalytics = async (req, res, next) => {
             WHEN BOOL_OR(e.event_type = 'payment_initiated') THEN 'payment_gateway'
             WHEN BOOL_OR(e.event_type IN ('checkout_view', 'address_enter')) THEN 'address_entry'
             WHEN BOOL_OR(e.event_type = 'date_time_select') THEN 'date_time_selection'
+            WHEN BOOL_OR(e.event_type IN ('otp_requested', 'auth_otp_sent', 'otp_sent')) OR BOOL_OR(e.dropoff_stage = 'otp_pending') THEN 'otp_pending'
             WHEN BOOL_OR(e.event_type = 'pooja_view') OR BOOL_OR(e.dropoff_stage = 'pooja_details') THEN 'pooja_details'
             ELSE COALESCE((ARRAY_AGG(e.dropoff_stage ORDER BY e.created_at DESC) FILTER (WHERE e.dropoff_stage IS NOT NULL))[1], 'browsing_exit')
           END AS final_dropoff_stage
@@ -250,6 +252,7 @@ const getJourneyAnalytics = async (req, res, next) => {
             WHEN BOOL_OR(e.event_type = 'payment_initiated') THEN 'payment_gateway'
             WHEN BOOL_OR(e.event_type IN ('checkout_view', 'address_enter')) THEN 'address_entry'
             WHEN BOOL_OR(e.event_type = 'date_time_select') THEN 'date_time_selection'
+            WHEN BOOL_OR(e.event_type IN ('otp_requested', 'auth_otp_sent', 'otp_sent')) OR BOOL_OR(e.dropoff_stage = 'otp_pending') THEN 'otp_pending'
             WHEN BOOL_OR(e.event_type = 'pooja_view') OR BOOL_OR(e.dropoff_stage = 'pooja_details') THEN 'pooja_details'
             ELSE COALESCE((ARRAY_AGG(e.dropoff_stage ORDER BY e.created_at DESC) FILTER (WHERE e.dropoff_stage IS NOT NULL))[1], 'browsing_exit')
           END AS last_dropoff_stage,
