@@ -83,28 +83,30 @@ const getJourneyAnalytics = async (req, res, next) => {
     const whereClause = timeFilters.length ? `WHERE ${timeFilters.join(" AND ")}` : "";
 
     // 1. Funnel Aggregates (Cumulative funnel stage metrics)
+    const eWhereClause = whereClause ? whereClause.replace(/\bcreated_at\b/g, "e.created_at") : "";
     const funnelResult = await query(
       `
       SELECT
-        COUNT(DISTINCT session_id)::int AS session_start,
-        COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN session_id END)::int AS authed_session_start,
+        COUNT(DISTINCT e.session_id)::int AS session_start,
+        COUNT(DISTINCT u.id)::int AS authed_session_start,
 
-        COUNT(DISTINCT CASE WHEN event_type = 'pooja_view' OR (pooja_id IS NOT NULL AND event_type != 'booking_completed') THEN session_id END)::int AS pooja_view,
-        COUNT(DISTINCT CASE WHEN (event_type = 'pooja_view' OR pooja_id IS NOT NULL) AND user_id IS NOT NULL THEN session_id END)::int AS authed_pooja_view,
+        COUNT(DISTINCT CASE WHEN e.event_type = 'pooja_view' OR (e.pooja_id IS NOT NULL AND e.event_type != 'booking_completed') THEN e.session_id END)::int AS pooja_view,
+        COUNT(DISTINCT CASE WHEN (e.event_type = 'pooja_view' OR e.pooja_id IS NOT NULL) THEN u.id END)::int AS authed_pooja_view,
 
-        COUNT(DISTINCT CASE WHEN event_type IN ('booking_start', 'date_time_select', 'address_enter', 'pandit_select', 'checkout_view', 'payment_initiated', 'booking_completed') THEN session_id END)::int AS booking_started,
-        COUNT(DISTINCT CASE WHEN event_type IN ('booking_start', 'date_time_select', 'address_enter', 'pandit_select', 'checkout_view', 'payment_initiated', 'booking_completed') AND user_id IS NOT NULL THEN session_id END)::int AS authed_booking_started,
+        COUNT(DISTINCT CASE WHEN e.event_type IN ('booking_start', 'date_time_select', 'address_enter', 'pandit_select', 'checkout_view', 'payment_initiated', 'booking_completed') THEN e.session_id END)::int AS booking_started,
+        COUNT(DISTINCT CASE WHEN e.event_type IN ('booking_start', 'date_time_select', 'address_enter', 'pandit_select', 'checkout_view', 'payment_initiated', 'booking_completed') THEN u.id END)::int AS authed_booking_started,
 
-        COUNT(DISTINCT CASE WHEN event_type IN ('checkout_view', 'address_enter', 'pandit_select', 'payment_initiated', 'booking_completed') THEN session_id END)::int AS checkout_view,
-        COUNT(DISTINCT CASE WHEN event_type IN ('checkout_view', 'address_enter', 'pandit_select', 'payment_initiated', 'booking_completed') AND user_id IS NOT NULL THEN session_id END)::int AS authed_checkout_view,
+        COUNT(DISTINCT CASE WHEN e.event_type IN ('checkout_view', 'address_enter', 'pandit_select', 'payment_initiated', 'booking_completed') THEN e.session_id END)::int AS checkout_view,
+        COUNT(DISTINCT CASE WHEN e.event_type IN ('checkout_view', 'address_enter', 'pandit_select', 'payment_initiated', 'booking_completed') THEN u.id END)::int AS authed_checkout_view,
 
-        COUNT(DISTINCT CASE WHEN event_type IN ('payment_initiated', 'booking_completed') THEN session_id END)::int AS payment_initiated,
-        COUNT(DISTINCT CASE WHEN event_type IN ('payment_initiated', 'booking_completed') AND user_id IS NOT NULL THEN session_id END)::int AS authed_payment_initiated,
+        COUNT(DISTINCT CASE WHEN e.event_type IN ('payment_initiated', 'booking_completed') THEN e.session_id END)::int AS payment_initiated,
+        COUNT(DISTINCT CASE WHEN e.event_type IN ('payment_initiated', 'booking_completed') THEN u.id END)::int AS authed_payment_initiated,
 
-        COUNT(DISTINCT CASE WHEN event_type = 'booking_completed' THEN session_id END)::int AS booking_completed,
-        COUNT(DISTINCT CASE WHEN event_type = 'booking_completed' AND user_id IS NOT NULL THEN session_id END)::int AS authed_booking_completed
-      FROM customer_journey_events
-      ${whereClause}
+        COUNT(DISTINCT CASE WHEN e.event_type = 'booking_completed' THEN e.session_id END)::int AS booking_completed,
+        COUNT(DISTINCT CASE WHEN e.event_type = 'booking_completed' THEN u.id END)::int AS authed_booking_completed
+      FROM customer_journey_events e
+      LEFT JOIN users u ON u.id = e.user_id
+      ${eWhereClause}
       `,
       values
     );
@@ -310,10 +312,20 @@ const getJourneyAnalytics = async (req, res, next) => {
       events: eventsMap[sess.session_id] || [],
     }));
 
+    const funnelWithExactAuthedCounts = {
+      ...funnelCounts,
+      authed_session_start: authedCustomersByFunnelStage["session_start"]?.length || 0,
+      authed_pooja_view: authedCustomersByFunnelStage["pooja_view"]?.length || 0,
+      authed_booking_started: authedCustomersByFunnelStage["booking_started"]?.length || 0,
+      authed_checkout_view: authedCustomersByFunnelStage["checkout_view"]?.length || 0,
+      authed_payment_initiated: authedCustomersByFunnelStage["payment_initiated"]?.length || 0,
+      authed_booking_completed: authedCustomersByFunnelStage["booking_completed"]?.length || 0,
+    };
+
     return res.status(200).json({
       success: true,
       data: {
-        funnel: funnelCounts,
+        funnel: funnelWithExactAuthedCounts,
         dropoffs: dropoffResult.rows,
         authedCustomersByStage,
         authedCustomersByFunnelStage,
