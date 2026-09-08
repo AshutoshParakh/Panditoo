@@ -4,7 +4,7 @@ const net = require("net");
 const { pool, query } = require("../config/db");
 const { sendOTP } = require("../utils/otpService");
 const { getReviewCredential, isReviewPhone, isReviewOtp } = require("../utils/reviewCredentials");
-const { signAuthToken } = require("../utils/jwt");
+const { signAuthToken, verifyAuthToken, signPanditRegistrationToken } = require("../utils/jwt");
 const { getReferralCampaign } = require("../services/referralService");
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES || 5);
@@ -213,6 +213,7 @@ const verifyOtpForActor = async (phone, otp, actorType, req = null, options = {}
         success: true,
         isNewUser: true,
         phone: normalizedPhone,
+        ...(actorType === "pandit" ? { registrationToken: signPanditRegistrationToken(normalizedPhone) } : {}),
       },
     };
   }
@@ -317,6 +318,15 @@ const registerUser = async (req, res, next) => {
 
 const registerPandit = async (req, res, next) => {
   try {
+    let registration;
+    try {
+      registration = verifyAuthToken(req.body.registration_token);
+    } catch (_) {
+      return res.status(401).json({ success: false, message: "Please verify your phone number again before registering." });
+    }
+    if (registration.type !== "pandit-registration" || registration.phone !== normalizePhone(req.body.phone)) {
+      return res.status(401).json({ success: false, message: "Phone verification does not match this registration." });
+    }
     const {
       name,
       phone,
@@ -349,23 +359,7 @@ const registerPandit = async (req, res, next) => {
           bank_account_details, id_proof_url, terms_version, privacy_version, policies_accepted_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13, NOW())
-        ON CONFLICT (phone)
-        DO UPDATE SET 
-          name = EXCLUDED.name, 
-          email = EXCLUDED.email, 
-          address = EXCLUDED.address, 
-          source = EXCLUDED.source,
-          specializations = EXCLUDED.specializations,
-          experience_years = EXCLUDED.experience_years,
-          service_radius_km = EXCLUDED.service_radius_km,
-          latitude = EXCLUDED.latitude,
-          longitude = EXCLUDED.longitude,
-          bank_account_details = EXCLUDED.bank_account_details,
-          id_proof_url = EXCLUDED.id_proof_url,
-          terms_version = EXCLUDED.terms_version,
-          privacy_version = EXCLUDED.privacy_version,
-          policies_accepted_at = EXCLUDED.policies_accepted_at,
-          updated_at = NOW()
+        ON CONFLICT (phone) DO NOTHING
         RETURNING id, name, phone, email, address, source, specializations, experience_years, service_radius_km, latitude, longitude, bank_account_details, id_proof_url, is_verified, is_active
       `,
       [
@@ -386,6 +380,9 @@ const registerPandit = async (req, res, next) => {
     );
 
     const pandit = panditResult.rows[0];
+    if (!pandit) {
+      return res.status(409).json({ success: false, message: "This number is already registered. Please log in to the Panditoo pandit app." });
+    }
     await recordPolicyAcceptance(req, "pandit", pandit.id);
     const token = signAuthToken({
       id: pandit.id,

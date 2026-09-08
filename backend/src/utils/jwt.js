@@ -25,7 +25,12 @@ const signAuthToken = ({ id, phone, email, type }) => {
 
 const verifyAuthToken = (token) => jwt.verify(token, getJwtSecret());
 
+const signPanditRegistrationToken = (phone) => jwt.sign(
+  { phone, type: "pandit-registration" }, getJwtSecret(), { expiresIn: "30m" }
+);
+
 module.exports = {
   signAuthToken,
   verifyAuthToken,
+  signPanditRegistrationToken,
 };
